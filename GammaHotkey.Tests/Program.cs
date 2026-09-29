@@ -245,7 +245,16 @@ var tests = new (string Name, Action Run)[]
                 restored.Profiles.Count == 1 && restored.Profiles[0].Gamma == 1.0);
             File.WriteAllText(path, "{\"schemaVersion\":3}");
             restored = AppSettings.Load(path, out warning);
-            Check(warning is not null && warning.Contains("version 3") && restored.Profiles[0].Gamma == 1.0);
+            Check(warning is not null && warning.Contains("version 3") && warning.Contains("settings.invalid-") &&
+                restored.Profiles[0].Gamma == 1.0);
+            Check(Directory.GetFiles(directory, "settings.invalid-*.json").Any(f => File.ReadAllText(f) == "{\"schemaVersion\":3}") &&
+                File.ReadAllText(path) == "{\"schemaVersion\":3}");
+            File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":null}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is not null && restored.Profiles.Count == 1);
+            File.WriteAllText(path, "{\"schemaVersion\":1,\"profiles\":null}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is not null && restored.Profiles.Count == 1);
             File.WriteAllText(path, "{\"theme\":\"Dark\"}");
             restored = AppSettings.Load(path, out warning);
             Check(warning is not null && restored.Theme == "System");
@@ -273,9 +282,18 @@ var tests = new (string Name, Action Run)[]
             File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":2.0,\"periodicReapply\":false,\"theme\":\"Unknown\"}");
             restored = AppSettings.Load(path, out warning);
             Check(warning is not null && restored.Theme == "System");
+            foreach (string file in Directory.GetFiles(directory, "settings.invalid-*.json")) File.Delete(file);
             File.WriteAllText(path, "{invalid");
             restored = AppSettings.Load(path, out warning);
-            Check(warning is not null && restored.Profiles[0].Gamma == 1.0 && !restored.StartInTray);
+            Check(warning is not null && warning.Contains("settings.invalid-") && restored.Profiles[0].Gamma == 1.0 && !restored.StartInTray);
+            Check(File.ReadAllText(path) == "{invalid" &&
+                File.ReadAllText(Directory.GetFiles(directory, "settings.invalid-*.json").Single()) == "{invalid");
+            restored.Save(path);
+            Check(File.ReadAllText(path + ".bak") == "{invalid" && AppSettings.Load(path, out warning).Profiles.Count == 1 && warning is null);
+            restored.Theme = "Light";
+            restored.Save(path);
+            Check(AppSettings.Load(path + ".bak", out warning).Theme == "System" && warning is null &&
+                AppSettings.Load(path, out _).Theme == "Light");
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }),

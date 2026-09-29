@@ -125,8 +125,12 @@ public partial class MainWindow : Window
         if (loading) return;
         settings.StartInTray = StartMinimized.IsChecked == true;
         try { settings.Save(AppSettings.DefaultPath); settingsWarning = null; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        { settingsWarning = "Settings could not be saved."; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // ArgumentException means the UI let an invalid state through: an internal error, not a user mistake.
+            Log.Write("Settings save failed: " + ex);
+            settingsWarning = "Settings could not be saved.";
+        }
         UpdateView();
     }
 

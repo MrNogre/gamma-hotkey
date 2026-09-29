@@ -39,23 +39,35 @@ public sealed class AppSettings
                 throw new JsonException("Missing settings version.");
             if (version is not (1 or 2))
             {
-                warning = $"Settings version {version} is not supported; safe defaults are in use.";
+                warning = $"Settings version {version} is not supported; safe defaults are in use." + BackupNote(path);
                 return new AppSettings();
             }
             var result = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
             if (result is null) throw new JsonException("Invalid settings values.");
             if (version == 1) MigrateV1(result, root);
             // Earlier builds allowed up to 6.0, but drivers reject ramps above 4.0; keep those profiles usable at the new maximum.
-            foreach (var profile in result.Profiles)
+            foreach (var profile in result.Profiles ?? [])
                 if (profile is { Gamma: > 4 and <= 6 }) profile.Gamma = 4;
             if (!result.IsValid()) throw new JsonException("Invalid settings values.");
             return result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            warning = "Settings could not be loaded; safe defaults are in use.";
+            warning = "Settings could not be loaded; safe defaults are in use." + BackupNote(path);
             return new AppSettings();
         }
+    }
+
+    // Keeps the rejected file next to the settings so the next save of the defaults does not destroy it.
+    private static string BackupNote(string path)
+    {
+        string backup = Path.Combine(Path.GetDirectoryName(path)!, $"settings.invalid-{DateTime.Now:yyyyMMdd-HHmmss}.json");
+        try
+        {
+            File.Copy(path, backup, true);
+            return $" The old file was kept as {Path.GetFileName(backup)}.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return ""; }
     }
 
     // v1 stored a single legacy gamma when profiles were absent, and bare hotkeys that were always Ctrl+Alt.
@@ -68,7 +80,7 @@ public sealed class AppSettings
                 throw new JsonException("Invalid settings values.");
             result.Profiles = [new GammaProfile { Gamma = gamma }];
         }
-        foreach (var profile in result.Profiles)
+        foreach (var profile in result.Profiles ?? [])
             if (profile is { Hotkey: { Length: > 0 } key }) profile.Hotkey = "Ctrl+Alt+" + key;
         result.SchemaVersion = 2;
     }
@@ -82,7 +94,8 @@ public sealed class AppSettings
         try
         {
             File.WriteAllText(temporary, JsonSerializer.Serialize(this, JsonOptions));
-            File.Move(temporary, path, true);
+            if (File.Exists(path)) File.Replace(temporary, path, path + ".bak");
+            else File.Move(temporary, path);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
