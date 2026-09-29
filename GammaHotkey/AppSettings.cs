@@ -102,11 +102,12 @@ public sealed class AppSettings
     };
 }
 
-// Hotkey text is "Ctrl+Alt+Shift+Win+Key" with any subset of modifiers in that fixed order.
-// Key is A-Z, 0-9 or F1-F12; letters and digits need Ctrl, Alt or Win so plain typing is never blocked.
+// Hotkey text is "Ctrl+Alt+Shift+Key" with any subset of modifiers in that fixed order.
+// Key is A-Z, 0-9 or F1-F12; letters and digits need Ctrl or Alt so plain typing is never blocked.
+// Win is not offered: the shell reserves most Win combinations and the key never reaches the capture box.
 internal static class Hotkey
 {
-    private static readonly (string Name, uint Flag)[] Modifiers = [("Ctrl", 0x2), ("Alt", 0x1), ("Shift", 0x4), ("Win", 0x8)];
+    private static readonly (string Name, uint Flag)[] Modifiers = [("Ctrl", 0x2), ("Alt", 0x1), ("Shift", 0x4)];
 
     public static bool TryParse(string? text, out uint modifiers, out uint virtualKey)
     {
@@ -125,7 +126,7 @@ internal static class Hotkey
         string key = parts[^1];
         if (key is [>= 'A' and <= 'Z' or >= '0' and <= '9'])
         {
-            if ((modifiers & 0xB) == 0) return false;
+            if ((modifiers & 0x3) == 0) return false;
             virtualKey = key[0];
             return true;
         }

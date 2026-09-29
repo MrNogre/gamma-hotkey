@@ -223,8 +223,8 @@ public partial class MainWindow : Window
         if ((key == Key.Delete || key == Key.Back) && Keyboard.Modifiers == ModifierKeys.None) { SetShortcut(""); return; }
         var modifiers = Keyboard.Modifiers;
         string prefix = (modifiers.HasFlag(ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(ModifierKeys.Alt) ? "Alt+" : "") +
-            (modifiers.HasFlag(ModifierKeys.Shift) ? "Shift+" : "") + (modifiers.HasFlag(ModifierKeys.Windows) ? "Win+" : "");
-        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin)
+            (modifiers.HasFlag(ModifierKeys.Shift) ? "Shift+" : "");
+        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift)
         {
             ShortcutInput.Text = prefix + "…";
             return;
@@ -238,9 +238,9 @@ public partial class MainWindow : Window
             >= Key.F1 and <= Key.F12 => $"F{key - Key.F1 + 1}",
             _ => null
         };
-        if (value is null) { shortcutFeedback = "Use a letter, digit, or F1–F12, with optional Ctrl, Alt, Shift or Win."; UpdateView(); return; }
+        if (value is null) { shortcutFeedback = "Use a letter, digit, or F1–F12, with optional Ctrl, Alt or Shift."; UpdateView(); return; }
         if (!Hotkey.TryParse(prefix + value, out _, out _))
-        { shortcutFeedback = "Letters and digits need Ctrl, Alt or Win."; UpdateView(); return; }
+        { shortcutFeedback = "Letters and digits need Ctrl or Alt."; UpdateView(); return; }
         SetShortcut(prefix + value);
     }
 

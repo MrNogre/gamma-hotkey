@@ -172,17 +172,17 @@ var tests = new (string Name, Action Run)[]
                 restored.Profiles[0].Gamma == 1.21 && restored.Profiles[1].Name == "Gaming" &&
                 restored.Profiles[1].Gamma == 1.6 && restored.Profiles[1].Hotkey == "Ctrl+Alt+G");
             defaults.Profiles[0].Hotkey = "F9";
-            defaults.Profiles[1].Hotkey = "Ctrl+Alt+Shift+Win+F12";
+            defaults.Profiles[1].Hotkey = "Ctrl+Alt+Shift+F12";
             defaults.Save(path);
             restored = AppSettings.Load(path, out warning);
-            Check(warning is null && restored.Profiles[0].Hotkey == "F9" && restored.Profiles[1].Hotkey == "Ctrl+Alt+Shift+Win+F12");
+            Check(warning is null && restored.Profiles[0].Hotkey == "F9" && restored.Profiles[1].Hotkey == "Ctrl+Alt+Shift+F12");
             foreach (string invalid in new[] { "G", "5", "Shift+G", "Alt+Ctrl+G", "Ctrl+Ctrl+G", "Ctrl+", "+G", "ctrl+G",
-                "Ctrl+F0", "F01", "F13", "F1x", "Ctrl+Numpad5" })
+                "Ctrl+F0", "F01", "F13", "F1x", "Ctrl+Numpad5", "Win+G", "Ctrl+Win+F5" })
             {
                 defaults.Profiles[0].Hotkey = invalid;
                 Throws(() => defaults.Save(path));
             }
-            defaults.Profiles[0].Hotkey = "Ctrl+Alt+Shift+Win+F12";
+            defaults.Profiles[0].Hotkey = "Ctrl+Alt+Shift+F12";
             Throws(() => defaults.Save(path));
             defaults.Profiles[0].Hotkey = "F9";
             defaults.Profiles[0].Gamma = 4;
@@ -243,8 +243,8 @@ var tests = new (string Name, Action Run)[]
         Check(Hotkey.TryParse("F9", out uint modifiers, out uint key) && modifiers == 0 && key == 0x78);
         Check(Hotkey.TryParse("Ctrl+Shift+F5", out modifiers, out key) && modifiers == 0x6 && key == 0x74);
         Check(Hotkey.TryParse("Ctrl+Alt+A", out modifiers, out key) && modifiers == 0x3 && key == 'A');
-        Check(Hotkey.TryParse("Win+Alt+7", out modifiers, out key) == false);
-        Check(Hotkey.TryParse("Alt+Win+7", out modifiers, out key) && modifiers == 0x9 && key == '7');
+        Check(Hotkey.TryParse("Alt+7", out modifiers, out key) && modifiers == 0x1 && key == '7');
+        Check(!Hotkey.TryParse("Alt+Win+7", out _, out _) && !Hotkey.TryParse("Win+F5", out _, out _));
         Check(Hotkey.TryParse("Shift+F1", out modifiers, out key) && modifiers == 0x4 && key == 0x70);
         Check(!Hotkey.TryParse("Shift+Q", out _, out _) && !Hotkey.TryParse("Q", out _, out _) && !Hotkey.TryParse(null, out _, out _));
         // Only exact Ctrl+Alt(+Shift) letter/digit combinations can collide with AltGr typing; layout-specific results are checked manually.
