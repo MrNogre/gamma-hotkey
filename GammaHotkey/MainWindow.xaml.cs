@@ -21,6 +21,7 @@ using WF = System.Windows.Forms;
 
 namespace GammaHotkey;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "tray is disposed in OnClosed")]
 public partial class MainWindow : Window
 {
     private const int ProfileHotkeyId = 0x4800;
@@ -245,7 +246,7 @@ public partial class MainWindow : Window
         string? value = key switch
         {
             >= Key.A and <= Key.Z => key.ToString(),
-            >= Key.D0 and <= Key.D9 => ((int)(key - Key.D0)).ToString(),
+            >= Key.D0 and <= Key.D9 => ((int)(key - Key.D0)).ToString(CultureInfo.InvariantCulture),
             >= Key.F1 and <= Key.F12 => $"F{key - Key.F1 + 1}",
             _ => null
         };
@@ -278,7 +279,7 @@ public partial class MainWindow : Window
             {
                 string key = settings.Profiles[i].Hotkey;
                 if (key == "") continue;
-                Hotkey.TryParse(key, out uint modifiers, out uint virtualKey);
+                if (!Hotkey.TryParse(key, out uint modifiers, out uint virtualKey)) continue;
                 int id = ProfileHotkeyId + i;
                 if (NativeMethods.RegisterHotKey(hwnd, id, NativeMethods.ModNoRepeat | modifiers, virtualKey))
                     registeredProfiles.Add(id);
@@ -401,7 +402,7 @@ public partial class MainWindow : Window
         {
             int darkTitle = dark ? 1 : 0;
             if (DwmSetWindowAttribute(hwnd, 20, ref darkTitle, sizeof(int)) != 0)
-                DwmSetWindowAttribute(hwnd, 19, ref darkTitle, sizeof(int));
+                _ = DwmSetWindowAttribute(hwnd, 19, ref darkTitle, sizeof(int));
         }
         UpdateView();
     }
@@ -483,7 +484,7 @@ public partial class MainWindow : Window
             int darkTitle = settings.Theme == "Dark" || settings.Theme == "System" && SystemDarkTheme() ? 1 : 0;
             nint handle = new WindowInteropHelper(dialog).Handle;
             if (DwmSetWindowAttribute(handle, 20, ref darkTitle, sizeof(int)) != 0)
-                DwmSetWindowAttribute(handle, 19, ref darkTitle, sizeof(int));
+                _ = DwmSetWindowAttribute(handle, 19, ref darkTitle, sizeof(int));
         };
         return dialog;
     }

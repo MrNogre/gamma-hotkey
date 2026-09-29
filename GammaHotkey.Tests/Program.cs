@@ -54,7 +54,7 @@ var tests = new (string Name, Action Run)[]
         var ramp = IdentityRamp();
         foreach (double value in new[] { double.NaN, double.PositiveInfinity, 0.49, 4.01 })
             Throws(() => ramp.Bright(value));
-        Throws(() => new GammaRamp(new ushort[1]));
+        Throws(() => _ = new GammaRamp(new ushort[1]));
         var descending = ramp.ToArray();
         descending[130] = 0;
         Throws(() => new GammaRamp(descending).Bright(2.0));
@@ -346,12 +346,12 @@ static GammaRamp CurvedRamp()
 
 static void Check(bool value)
 {
-    if (!value) throw new Exception("Assertion failed.");
+    if (!value) throw new InvalidOperationException("Assertion failed.");
 }
 
 static void Throws(Action action)
 {
     try { action(); }
     catch (ArgumentException) { return; }
-    throw new Exception("Expected an argument exception.");
+    throw new InvalidOperationException("Expected an argument exception.");
 }
