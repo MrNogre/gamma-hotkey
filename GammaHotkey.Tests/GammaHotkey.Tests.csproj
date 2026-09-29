@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../GammaHotkey/GammaRamp.cs" Link="GammaRamp.cs" />
+    <Compile Include="../GammaHotkey/AppSettings.cs" Link="AppSettings.cs" />
+    <Compile Include="../GammaHotkey/GammaController.cs" Link="GammaController.cs" />
+    <Compile Include="../GammaHotkey/NativeMethods.cs" Link="NativeMethods.cs" />
+  </ItemGroup>
+</Project>
