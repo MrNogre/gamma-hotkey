@@ -6,7 +6,7 @@ namespace GammaHotkey;
 public sealed class GammaProfile
 {
     public string Name { get; set; } = "Default";
-    public double Gamma { get; set; } = 2.0;
+    public double Gamma { get; set; } = 1.0;
     public string Hotkey { get; set; } = "";
     public override string ToString() => Name;
 }
@@ -14,7 +14,7 @@ public sealed class GammaProfile
 public sealed class AppSettings
 {
     public int SchemaVersion { get; set; } = 1;
-    public double BrightGamma { get; set; } = 2.0;
+    public double BrightGamma { get; set; } = 1.0;
     public bool PeriodicReapply { get; set; }
     public bool StartInTray { get; set; }
     public string Theme { get; set; } = "System";
