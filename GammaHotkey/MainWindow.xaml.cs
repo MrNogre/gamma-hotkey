@@ -179,14 +179,14 @@ public partial class MainWindow : Window
     {
         if ((double.TryParse(GammaInput.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out double value) ||
              double.TryParse(GammaInput.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) &&
-            double.IsFinite(value) && value >= 0.5 && value <= 6 && Math.Abs(value * 100 - Math.Round(value * 100)) < 0.000001)
+            double.IsFinite(value) && value >= 0.5 && value <= 4 && Math.Abs(value * 100 - Math.Round(value * 100)) < 0.000001)
         {
             shortcutFeedback = null;
             CommitGamma(value);
         }
         else
         {
-            shortcutFeedback = "Enter a gamma from 0.50 to 6.00 in steps of 0.01.";
+            shortcutFeedback = "Enter a gamma from 0.50 to 4.00 in steps of 0.01.";
             GammaInput.Text = settings.Profiles[settings.SelectedProfile].Gamma.ToString("F2", CultureInfo.CurrentCulture);
             editingGamma = false;
             UpdateView();

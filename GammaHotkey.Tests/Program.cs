@@ -19,7 +19,7 @@ var tests = new (string Name, Action Run)[]
     ("Extended gamma preserves monotonic channels and endpoints", () =>
     {
         var source = IdentityRamp();
-        foreach (double gamma in new[] { 0.5, 6.0 })
+        foreach (double gamma in new[] { 0.5, 4.0 })
         {
             var changed = source.Bright(gamma);
             for (int channel = 0; channel < 3; channel++)
@@ -35,7 +35,7 @@ var tests = new (string Name, Action Run)[]
         var controller = new GammaController(() => ["A"], _ => current, (_, target) =>
         { writes++; current = target; return true; });
         controller.RefreshBaseline();
-        foreach (double gamma in new[] { 0.5, 6.0 })
+        foreach (double gamma in new[] { 0.5, 4.0 })
         {
             controller.ApplyProfile(new GammaProfile { Gamma = gamma });
             Check(controller.Displays.Single().Confirmed);
@@ -52,7 +52,7 @@ var tests = new (string Name, Action Run)[]
     ("Invalid gamma and unsafe ramps are rejected", () =>
     {
         var ramp = IdentityRamp();
-        foreach (double value in new[] { double.NaN, double.PositiveInfinity, 0.49, 6.01 })
+        foreach (double value in new[] { double.NaN, double.PositiveInfinity, 0.49, 4.01 })
             Throws(() => ramp.Bright(value));
         Throws(() => new GammaRamp(new ushort[1]));
         var descending = ramp.ToArray();
@@ -185,11 +185,19 @@ var tests = new (string Name, Action Run)[]
             defaults.Profiles[0].Hotkey = "Ctrl+Alt+Shift+Win+F12";
             Throws(() => defaults.Save(path));
             defaults.Profiles[0].Hotkey = "F9";
-            defaults.Profiles[0].Gamma = 6;
+            defaults.Profiles[0].Gamma = 4;
             defaults.Profiles[1].Gamma = 0.5;
             defaults.Save(path);
             restored = AppSettings.Load(path, out warning);
-            Check(warning is null && restored.Profiles[0].Gamma == 6 && restored.Profiles[1].Gamma == 0.5);
+            Check(warning is null && restored.Profiles[0].Gamma == 4 && restored.Profiles[1].Gamma == 0.5);
+            defaults.Profiles[0].Gamma = 4.01;
+            Throws(() => defaults.Save(path));
+            File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"High\",\"gamma\":5.5}]}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is null && restored.Profiles[0].Name == "High" && restored.Profiles[0].Gamma == 4);
+            File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"High\",\"gamma\":6.5}]}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is not null && restored.Profiles[0].Name == "Default");
             File.WriteAllText(path, "{\"schemaVersion\":2}");
             restored = AppSettings.Load(path, out warning);
             Check(warning is null && !restored.StartInTray && restored.Theme == "System" &&

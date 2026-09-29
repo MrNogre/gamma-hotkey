@@ -185,7 +185,7 @@
                     </Border>
                     <TextBlock Text="Gamma" FontWeight="SemiBold" Margin="0,12,0,2"/>
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="112"/></Grid.ColumnDefinitions>
-                        <Slider x:Name="GammaSlider" Minimum="0.5" Maximum="6" TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="8,0,18,0" ValueChanged="GammaSlider_ValueChanged" PreviewKeyUp="SliderKeyCommit" AutomationProperties.Name="Profile gamma slider"/>
+                        <Slider x:Name="GammaSlider" Minimum="0.5" Maximum="4" TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="8,0,18,0" ValueChanged="GammaSlider_ValueChanged" PreviewKeyUp="SliderKeyCommit" AutomationProperties.Name="Profile gamma slider"/>
                         <TextBox x:Name="GammaInput" Grid.Column="1" TextAlignment="Center" LostFocus="GammaInput_LostFocus" KeyDown="GammaInput_KeyDown" AutomationProperties.Name="Profile gamma value"/>
                     </Grid>
                     <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="175"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

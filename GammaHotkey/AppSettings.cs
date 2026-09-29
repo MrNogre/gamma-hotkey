@@ -44,6 +44,9 @@ public sealed class AppSettings
             var result = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
             if (result is null) throw new JsonException("Invalid settings values.");
             if (version == 1) MigrateV1(result, root);
+            // Earlier builds allowed up to 6.0, but drivers reject ramps above 4.0; keep those profiles usable at the new maximum.
+            foreach (var profile in result.Profiles)
+                if (profile is { Gamma: > 4 and <= 6 }) profile.Gamma = 4;
             if (!result.IsValid()) throw new JsonException("Invalid settings values.");
             return result;
         }
@@ -86,7 +89,7 @@ public sealed class AppSettings
     private bool IsValid() => SchemaVersion == 2 && Theme is "Light" or "Dark" or "System" &&
         Profiles is { Count: > 0 } && SelectedProfile >= 0 && SelectedProfile < Profiles.Count &&
         Profiles.All(p => p is not null && !string.IsNullOrWhiteSpace(p.Name) && p.Name.Length <= 60 &&
-            double.IsFinite(p.Gamma) && p.Gamma >= 0.5 && p.Gamma <= 6 &&
+            double.IsFinite(p.Gamma) && p.Gamma >= 0.5 && p.Gamma <= 4 &&
             (p.Hotkey == "" || Hotkey.TryParse(p.Hotkey, out _, out _))) &&
         Profiles.Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() == Profiles.Count &&
         Profiles.Where(p => p.Hotkey != "").Select(p => p.Hotkey).Distinct().Count() ==

@@ -32,7 +32,7 @@ public sealed class GammaRamp
 
     public GammaRamp Bright(double gamma)
     {
-        if (!double.IsFinite(gamma) || gamma < 0.5 || gamma > 6)
+        if (!double.IsFinite(gamma) || gamma < 0.5 || gamma > 4)
             throw new ArgumentOutOfRangeException(nameof(gamma));
         if (!IsSafe()) throw new ArgumentException("The source ramp is unsafe or non-monotonic.");
         if (gamma == 1) return new GammaRamp(values);
