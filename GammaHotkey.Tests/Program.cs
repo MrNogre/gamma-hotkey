@@ -165,7 +165,8 @@ var tests = new (string Name, Action Run)[]
             defaults.SelectedProfile = 1;
             defaults.Save(path);
             string saved = File.ReadAllText(path);
-            Check(saved.Contains("\"schemaVersion\": 2") && !saved.Contains("brightGamma") && !saved.Contains("periodicReapply"));
+            Check(saved.Contains("\"schemaVersion\": 2") && !saved.Contains("brightGamma") && !saved.Contains("periodicReapply") &&
+                saved.Contains("\"hotkey\": \"Ctrl+Alt+G\""));
             var restored = AppSettings.Load(path, out warning);
             Check(warning is null && restored.StartInTray && restored.Theme == "Dark" &&
                 restored.SelectedProfile == 1 && restored.Profiles.Count == 2 &&
