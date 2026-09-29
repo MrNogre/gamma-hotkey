@@ -149,7 +149,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     private static extern uint MapVirtualKeyEx(uint code, uint mapType, nint layout);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int ToUnicodeEx(uint virtualKey, uint scanCode, byte[] keyState,
         [Out, MarshalAs(UnmanagedType.LPArray)] char[] buffer, int bufferSize, uint flags, nint layout);
 

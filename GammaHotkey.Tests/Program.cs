@@ -242,6 +242,11 @@ var tests = new (string Name, Action Run)[]
         // Only exact Ctrl+Alt(+Shift) letter/digit combinations can collide with AltGr typing; layout-specific results are checked manually.
         Check(NativeMethods.AltGrCharacter(0x6, 'V') is null && NativeMethods.AltGrCharacter(0xB, 'V') is null &&
             NativeMethods.AltGrCharacter(0x3, 0x74) is null && NativeMethods.AltGrCharacter(0x0, 0x78) is null);
+        // Exercise the native path on every letter and digit; a mis-marshaled buffer corrupts the heap here.
+        for (int round = 0; round < 50; round++)
+            foreach (uint combination in new uint[] { 0x3, 0x7 })
+                foreach (char letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+                    Check(NativeMethods.AltGrCharacter(combination, letter) is null or { Length: >= 1 and <= 8 });
     })
 };
 
