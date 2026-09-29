@@ -113,7 +113,6 @@ public partial class MainWindow : Window
     private void SaveSettings()
     {
         if (loading) return;
-        settings.BrightGamma = settings.Profiles[settings.SelectedProfile].Gamma;
         settings.StartInTray = StartMinimized.IsChecked == true;
         try { settings.Save(AppSettings.DefaultPath); settingsWarning = null; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -127,7 +126,7 @@ public partial class MainWindow : Window
         var profile = settings.Profiles[settings.SelectedProfile];
         GammaSlider.Value = profile.Gamma;
         GammaInput.Text = profile.Gamma.ToString("F2", CultureInfo.CurrentCulture);
-        ShortcutInput.Text = profile.Hotkey == "" ? "None" : "Ctrl+Alt+" + profile.Hotkey;
+        ShortcutInput.Text = profile.Hotkey == "" ? "None" : profile.Hotkey;
         loading = false;
         editingGamma = false;
         UpdateView();
@@ -235,7 +234,7 @@ public partial class MainWindow : Window
             _ => null
         };
         if (value is null) { shortcutFeedback = "Use Ctrl+Alt with a letter, digit, or F1–F12."; UpdateView(); return; }
-        SetShortcut(value);
+        SetShortcut("Ctrl+Alt+" + value);
     }
 
     private void SetShortcut(string key)
@@ -260,11 +259,11 @@ public partial class MainWindow : Window
             {
                 string key = settings.Profiles[i].Hotkey;
                 if (key == "") continue;
-                uint virtualKey = key.Length == 1 ? key[0] : (uint)(WF.Keys.F1 + int.Parse(key.AsSpan(1)) - 1);
+                Hotkey.TryParse(key, out uint modifiers, out uint virtualKey);
                 int id = ProfileHotkeyId + i;
-                if (NativeMethods.RegisterHotKey(hwnd, id, NativeMethods.ModNoRepeat | 0x0001 | 0x0002, virtualKey))
+                if (NativeMethods.RegisterHotKey(hwnd, id, NativeMethods.ModNoRepeat | modifiers, virtualKey))
                     registeredProfiles.Add(id);
-                else profileHotkeyWarning = $"Hotkey unavailable: Ctrl+Alt+{key} ({settings.Profiles[i].Name}).";
+                else profileHotkeyWarning = $"Hotkey unavailable: {key} ({settings.Profiles[i].Name}).";
             }
         UpdateView();
     }

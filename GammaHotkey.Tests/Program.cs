@@ -156,59 +156,89 @@ var tests = new (string Name, Action Run)[]
         try
         {
             var defaults = AppSettings.Load(path, out var warning);
-            Check(warning is null && defaults.BrightGamma == 1.0 &&
-                !defaults.PeriodicReapply && !defaults.StartInTray && defaults.Theme == "System" &&
+            Check(warning is null && defaults.SchemaVersion == 2 && !defaults.StartInTray && defaults.Theme == "System" &&
                 defaults.Profiles.Count == 1 && defaults.Profiles[0].Gamma == 1.0);
-            defaults.BrightGamma = 1.21;
-            defaults.PeriodicReapply = true;
             defaults.StartInTray = true;
             defaults.Theme = "Dark";
             defaults.Profiles[0].Gamma = 1.21;
-            defaults.Profiles.Add(new GammaProfile { Name = "Gaming", Gamma = 1.6, Hotkey = "G" });
+            defaults.Profiles.Add(new GammaProfile { Name = "Gaming", Gamma = 1.6, Hotkey = "Ctrl+Alt+G" });
             defaults.SelectedProfile = 1;
             defaults.Save(path);
+            string saved = File.ReadAllText(path);
+            Check(saved.Contains("\"schemaVersion\": 2") && !saved.Contains("brightGamma") && !saved.Contains("periodicReapply"));
             var restored = AppSettings.Load(path, out warning);
-            Check(warning is null && restored.BrightGamma == 1.21 &&
-                restored.PeriodicReapply && restored.StartInTray && restored.Theme == "Dark" &&
+            Check(warning is null && restored.StartInTray && restored.Theme == "Dark" &&
                 restored.SelectedProfile == 1 && restored.Profiles.Count == 2 &&
-                restored.Profiles[1].Name == "Gaming" && restored.Profiles[1].Gamma == 1.6 &&
-                restored.Profiles[1].Hotkey == "G");
-            defaults.Profiles[0].Hotkey = "F1";
-            defaults.Profiles[1].Hotkey = "F12";
+                restored.Profiles[0].Gamma == 1.21 && restored.Profiles[1].Name == "Gaming" &&
+                restored.Profiles[1].Gamma == 1.6 && restored.Profiles[1].Hotkey == "Ctrl+Alt+G");
+            defaults.Profiles[0].Hotkey = "F9";
+            defaults.Profiles[1].Hotkey = "Ctrl+Alt+Shift+Win+F12";
             defaults.Save(path);
             restored = AppSettings.Load(path, out warning);
-            Check(warning is null && restored.Profiles[0].Hotkey == "F1" && restored.Profiles[1].Hotkey == "F12");
-            foreach (string invalid in new[] { "F0", "F01", "F13", "F1x" })
+            Check(warning is null && restored.Profiles[0].Hotkey == "F9" && restored.Profiles[1].Hotkey == "Ctrl+Alt+Shift+Win+F12");
+            foreach (string invalid in new[] { "G", "5", "Shift+G", "Alt+Ctrl+G", "Ctrl+Ctrl+G", "Ctrl+", "+G", "ctrl+G",
+                "Ctrl+F0", "F01", "F13", "F1x", "Ctrl+Numpad5" })
             {
                 defaults.Profiles[0].Hotkey = invalid;
                 Throws(() => defaults.Save(path));
             }
-            defaults.Profiles[0].Hotkey = "F12";
+            defaults.Profiles[0].Hotkey = "Ctrl+Alt+Shift+Win+F12";
             Throws(() => defaults.Save(path));
-            defaults.Profiles[0].Hotkey = "F1";
-            defaults.BrightGamma = 0.5;
+            defaults.Profiles[0].Hotkey = "F9";
             defaults.Profiles[0].Gamma = 6;
+            defaults.Profiles[1].Gamma = 0.5;
             defaults.Save(path);
             restored = AppSettings.Load(path, out warning);
-            Check(warning is null && restored.BrightGamma == 0.5 && restored.Profiles[0].Gamma == 6);
-            File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":2.0,\"periodicReapply\":false}");
+            Check(warning is null && restored.Profiles[0].Gamma == 6 && restored.Profiles[1].Gamma == 0.5);
+            File.WriteAllText(path, "{\"schemaVersion\":2}");
             restored = AppSettings.Load(path, out warning);
             Check(warning is null && !restored.StartInTray && restored.Theme == "System" &&
+                restored.Profiles.Count == 1 && restored.Profiles[0].Gamma == 1.0);
+            File.WriteAllText(path, "{\"schemaVersion\":3}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is not null && warning.Contains("version 3") && restored.Profiles[0].Gamma == 1.0);
+            File.WriteAllText(path, "{\"theme\":\"Dark\"}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is not null && restored.Theme == "System");
+            File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":2.0,\"periodicReapply\":false}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is null && restored.SchemaVersion == 2 && !restored.StartInTray && restored.Theme == "System" &&
                 restored.Profiles.Count == 1 && restored.Profiles[0].Gamma == 2.0);
-            File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":1.37,\"periodicReapply\":false}");
+            File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":1.37}");
             restored = AppSettings.Load(path, out warning);
             Check(warning is null && restored.Profiles[0].Gamma == 1.37);
+            File.WriteAllText(path, "{\"schemaVersion\":1}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is null && restored.Profiles.Count == 1 && restored.Profiles[0].Gamma == 1.0);
+            File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":2,\"periodicReapply\":true,\"startInTray\":true,\"profiles\":[{\"name\":\"One\",\"gamma\":1.5,\"hotkey\":\"A\"},{\"name\":\"Two\",\"gamma\":1.6,\"hotkey\":\"F5\"},{\"name\":\"Three\",\"gamma\":1.7,\"hotkey\":\"\"}],\"selectedProfile\":1}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is null && restored.StartInTray && restored.SelectedProfile == 1 && restored.Profiles.Count == 3 &&
+                restored.Profiles[0].Hotkey == "Ctrl+Alt+A" && restored.Profiles[1].Hotkey == "Ctrl+Alt+F5" &&
+                restored.Profiles[2].Hotkey == "" && restored.Profiles[1].Gamma == 1.6);
             File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":2,\"periodicReapply\":false,\"profiles\":[{\"name\":\"One\",\"gamma\":1.5,\"hotkey\":\"A\"},{\"name\":\"Two\",\"gamma\":1.6,\"hotkey\":\"A\"}]}");
             restored = AppSettings.Load(path, out warning);
             Check(warning is not null && restored.Profiles.Count == 1);
+            File.WriteAllText(path, "{\"schemaVersion\":1,\"profiles\":[{\"name\":\"One\",\"gamma\":1.5,\"hotkey\":\"F13\"}]}");
+            restored = AppSettings.Load(path, out warning);
+            Check(warning is not null);
             File.WriteAllText(path, "{\"schemaVersion\":1,\"brightGamma\":2.0,\"periodicReapply\":false,\"theme\":\"Unknown\"}");
             restored = AppSettings.Load(path, out warning);
             Check(warning is not null && restored.Theme == "System");
             File.WriteAllText(path, "{invalid");
             restored = AppSettings.Load(path, out warning);
-            Check(warning is not null && restored.BrightGamma == 1.0 && !restored.StartInTray);
+            Check(warning is not null && restored.Profiles[0].Gamma == 1.0 && !restored.StartInTray);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }),
+    ("Hotkey text maps to RegisterHotKey modifiers and virtual keys", () =>
+    {
+        Check(Hotkey.TryParse("F9", out uint modifiers, out uint key) && modifiers == 0 && key == 0x78);
+        Check(Hotkey.TryParse("Ctrl+Shift+F5", out modifiers, out key) && modifiers == 0x6 && key == 0x74);
+        Check(Hotkey.TryParse("Ctrl+Alt+A", out modifiers, out key) && modifiers == 0x3 && key == 'A');
+        Check(Hotkey.TryParse("Win+Alt+7", out modifiers, out key) == false);
+        Check(Hotkey.TryParse("Alt+Win+7", out modifiers, out key) && modifiers == 0x9 && key == '7');
+        Check(Hotkey.TryParse("Shift+F1", out modifiers, out key) && modifiers == 0x4 && key == 0x70);
+        Check(!Hotkey.TryParse("Shift+Q", out _, out _) && !Hotkey.TryParse("Q", out _, out _) && !Hotkey.TryParse(null, out _, out _));
     })
 };
 
