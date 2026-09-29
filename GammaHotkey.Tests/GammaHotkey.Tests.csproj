@@ -11,5 +11,6 @@
     <Compile Include="../GammaHotkey/AppSettings.cs" Link="AppSettings.cs" />
     <Compile Include="../GammaHotkey/GammaController.cs" Link="GammaController.cs" />
     <Compile Include="../GammaHotkey/NativeMethods.cs" Link="NativeMethods.cs" />
+    <Compile Include="../GammaHotkey/Log.cs" Link="Log.cs" />
   </ItemGroup>
 </Project>

@@ -143,6 +143,46 @@ var tests = new (string Name, Action Run)[]
         controller.HandleDisplayChange();
         Check(controller.HasFailedRestore && writes == 2 && controller.Displays.Single().BaselineRamp!.Matches(ramp));
     }),
+    ("Restore never throws and is idempotent when native calls throw", () =>
+    {
+        GammaRamp current = IdentityRamp();
+        bool fail = false;
+        int writes = 0;
+        var controller = new GammaController(() => ["A"],
+            _ => fail ? throw new InvalidOperationException() : current,
+            (_, target) => { writes++; if (fail) throw new InvalidOperationException(); current = target; return true; });
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        fail = true;
+        controller.Restore();
+        controller.Restore();
+        Check(controller.HasFailedRestore && writes == 1);
+        fail = false;
+        var healthy = new GammaController(() => ["A"], _ => current, (_, target) => { writes++; current = target; return true; });
+        current = IdentityRamp();
+        healthy.RefreshBaseline();
+        healthy.ApplyProfile(new GammaProfile { Gamma = 2 });
+        writes = 0;
+        healthy.Restore();
+        healthy.Restore();
+        Check(writes == 1 && current.Matches(IdentityRamp()) && !healthy.HasAppliedRamp);
+    }),
+    ("Log keeps only the newest five files", () =>
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());
+        try
+        {
+            Directory.CreateDirectory(directory);
+            for (int day = 1; day <= 6; day++) File.WriteAllText(Path.Combine(directory, $"gamma-hotkey-2020010{day}.log"), "");
+            Log.Folder = directory;
+            Log.Write("first");
+            Log.Write("second");
+            var files = Directory.GetFiles(directory).Select(Path.GetFileName).Order().ToArray();
+            Check(files.Length == 5 && files[0] == "gamma-hotkey-20200103.log" && File.Exists(Log.FilePath) &&
+                File.ReadAllLines(Log.FilePath).Length == 2);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }),
     ("Monitor labels prefer specific names", () =>
     {
         Check(NativeMethods.FormatDisplayLabel(@"\\.\DISPLAY1", "LG UltraGear") == "DISPLAY 1 - LG UltraGear");

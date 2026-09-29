@@ -30,8 +30,11 @@ internal sealed class GammaController
         Func<string, GammaRamp?>? read = null, Func<string, GammaRamp, bool>? write = null)
     {
         this.screenNames = screenNames ?? (() => Screen.AllScreens.Select(s => s.DeviceName));
-        this.read = read ?? (name => OnDc(name, dc => NativeMethods.Read(dc, out var ramp) ? ramp : null));
-        this.write = write ?? ((name, ramp) => OnDc(name, dc => NativeMethods.Write(dc, ramp)));
+        read ??= name => OnDc(name, dc => NativeMethods.Read(dc, out var ramp) ? ramp : null);
+        write ??= (name, ramp) => OnDc(name, dc => NativeMethods.Write(dc, ramp));
+        // A throwing native call counts as a failed read or write, so Restore can never throw out of a crash handler.
+        this.read = name => { try { return read(name); } catch (Exception) { return null; } };
+        this.write = (name, ramp) => { try { return write(name, ramp); } catch (Exception) { return false; } };
     }
 
     private static T OnDc<T>(string name, Func<nint, T> operation)

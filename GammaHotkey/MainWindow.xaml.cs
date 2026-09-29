@@ -32,6 +32,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer monitorTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private readonly DispatcherTimer displayTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
     private readonly List<int> registeredProfiles = [];
+    private readonly Dictionary<string, string> loggedStatus = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object restoreGate = new();
     private nint hwnd;
     private string? settingsWarning;
     private string? profileHotkeyWarning;
@@ -74,6 +76,10 @@ public partial class MainWindow : Window
         menu.Items.Add("Show", null, (_, _) => Dispatcher.Invoke(ShowWindow));
         menu.Items.Add(new WF.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(ExitApp));
+#if DEBUG
+        menu.Items.Add("Debug: throw", null, (_, _) =>
+            Dispatcher.BeginInvoke(new Action(() => throw new InvalidOperationException("Debug crash test."))));
+#endif
         tray = new WF.NotifyIcon
         {
             Icon = System.Drawing.Icon.ExtractAssociatedIcon(WF.Application.ExecutablePath) ?? System.Drawing.SystemIcons.Application,
@@ -82,6 +88,7 @@ public partial class MainWindow : Window
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow);
 
         controller.Changed += UpdateView;
+        controller.Changed += LogStatusChanges;
         monitorTimer.Tick += (_, _) => RunAction(controller.CheckForOverrides);
         displayTimer.Tick += (_, _) => { displayTimer.Stop(); RunAction(controller.HandleDisplayChange); };
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -554,6 +561,33 @@ public partial class MainWindow : Window
         WindowState = WindowState.Normal;
         Activate();
     }
+    private void LogStatusChanges()
+    {
+        foreach (var display in controller.Displays)
+            if (!loggedStatus.TryGetValue(display.DeviceName, out string? last) || last != display.Status)
+            {
+                loggedStatus[display.DeviceName] = display.Status;
+                Log.Write($"{display.DeviceName}: {display.Status}");
+            }
+    }
+
+    // Called from crash handlers, possibly off the UI thread; must never throw.
+    // ponytail: one coarse lock; a crash racing a UI-thread apply makes restore report failure rather than throw.
+    internal void EmergencyRestore()
+    {
+        lock (restoreGate)
+            try { controller.Restore(); }
+            catch (Exception) { }
+    }
+
+    internal void CrashExit()
+    {
+        EmergencyRestore();
+        exiting = true;
+        try { Cleanup(); }
+        catch (Exception) { }
+    }
+
     private void Exit_Click(object sender, RoutedEventArgs e) => ExitApp();
     private void ExitApp() { exiting = true; Close(); }
     private void Cleanup()
