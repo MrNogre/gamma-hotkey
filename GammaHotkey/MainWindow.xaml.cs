@@ -218,23 +218,27 @@ public partial class MainWindow : Window
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key == Key.Escape) { LoadProfile(); return; }
         if ((key == Key.Delete || key == Key.Back) && Keyboard.Modifiers == ModifierKeys.None) { SetShortcut(""); return; }
-        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift)
+        var modifiers = Keyboard.Modifiers;
+        string prefix = (modifiers.HasFlag(ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(ModifierKeys.Alt) ? "Alt+" : "") +
+            (modifiers.HasFlag(ModifierKeys.Shift) ? "Shift+" : "") + (modifiers.HasFlag(ModifierKeys.Windows) ? "Win+" : "");
+        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin)
         {
-            ShortcutInput.Text = Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) ? "Ctrl+Alt+…" : "Press Ctrl+Alt+letter/digit/F1–F12";
+            ShortcutInput.Text = prefix + "…";
             return;
         }
-        if (Keyboard.Modifiers != (ModifierKeys.Control | ModifierKeys.Alt))
-        { shortcutFeedback = "Use Ctrl+Alt with a letter, digit, or F1–F12."; UpdateView(); return; }
+        if (key is >= Key.NumPad0 and <= Key.NumPad9)
+        { shortcutFeedback = "Use the top-row digits, not the numpad."; UpdateView(); return; }
         string? value = key switch
         {
             >= Key.A and <= Key.Z => key.ToString(),
             >= Key.D0 and <= Key.D9 => ((int)(key - Key.D0)).ToString(),
-            >= Key.NumPad0 and <= Key.NumPad9 => ((int)(key - Key.NumPad0)).ToString(),
             >= Key.F1 and <= Key.F12 => $"F{key - Key.F1 + 1}",
             _ => null
         };
-        if (value is null) { shortcutFeedback = "Use Ctrl+Alt with a letter, digit, or F1–F12."; UpdateView(); return; }
-        SetShortcut("Ctrl+Alt+" + value);
+        if (value is null) { shortcutFeedback = "Use a letter, digit, or F1–F12, with optional Ctrl, Alt, Shift or Win."; UpdateView(); return; }
+        if (!Hotkey.TryParse(prefix + value, out _, out _))
+        { shortcutFeedback = "Letters and digits need Ctrl, Alt or Win."; UpdateView(); return; }
+        SetShortcut(prefix + value);
     }
 
     private void SetShortcut(string key)

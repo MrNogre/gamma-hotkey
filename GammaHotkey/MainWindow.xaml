@@ -190,7 +190,7 @@
                     </Grid>
                     <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="175"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <TextBlock Text="Hotkey" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <TextBox Grid.Column="1" x:Name="ShortcutInput" IsReadOnly="True" GotFocus="ShortcutInput_GotFocus" LostFocus="ShortcutInput_LostFocus" PreviewKeyDown="ShortcutInput_PreviewKeyDown" AutomationProperties.Name="Profile hotkey" ToolTip="Ctrl+Alt+letter, digit, or F1–F12. Delete clears; Escape keeps current."/>
+                        <TextBox Grid.Column="1" x:Name="ShortcutInput" IsReadOnly="True" GotFocus="ShortcutInput_GotFocus" LostFocus="ShortcutInput_LostFocus" PreviewKeyDown="ShortcutInput_PreviewKeyDown" AutomationProperties.Name="Profile hotkey" ToolTip="Press a shortcut: F1–F12 alone or with modifiers; letters and digits need Ctrl, Alt or Win. Delete clears; Escape keeps current."/>
                     </Grid>
                     <TextBlock x:Name="ShortcutFeedback" Foreground="{DynamicResource Warning}" Margin="0,5,0,0" Visibility="Collapsed"/>
                 </StackPanel>
