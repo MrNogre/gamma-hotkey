@@ -32,7 +32,7 @@ internal sealed class GammaController
         this.screenNames = screenNames ?? (() => Screen.AllScreens.Select(s => s.DeviceName));
         read ??= name => OnDc(name, dc => NativeMethods.Read(dc, out var ramp) ? ramp : null);
         write ??= (name, ramp) => OnDc(name, dc => NativeMethods.Write(dc, ramp));
-        // A throwing native call counts as a failed read or write, so Restore can never throw out of a crash handler.
+        // Native errors count as failed reads/writes, so Restore never throws.
         this.read = name => { try { return read(name); } catch (Exception) { return null; } };
         this.write = (name, ramp) => { try { return write(name, ramp); } catch (Exception) { return false; } };
     }

@@ -153,8 +153,8 @@ internal static class NativeMethods
     private static extern int ToUnicodeEx(uint virtualKey, uint scanCode, byte[] keyState,
         [Out, MarshalAs(UnmanagedType.LPArray)] char[] buffer, int bufferSize, uint flags, nint layout);
 
-    // RegisterHotKey matches modifiers exactly, so only Ctrl+Alt(+Shift) without Win collides with AltGr typing.
-    // Returns the character the key types with AltGr on the current layout, or null if nothing is blocked.
+    // Character AltGr+key types on the current layout, or null. Only exact Ctrl+Alt(+Shift)
+    // hotkeys can block it, because RegisterHotKey matches modifiers exactly.
     internal static string? AltGrCharacter(uint modifiers, uint virtualKey)
     {
         if ((modifiers & 0xB) != 0x3 || virtualKey >= 0x70) return null;
@@ -163,7 +163,7 @@ internal static class NativeMethods
         state[0x11] = state[0x12] = 0x80;
         if ((modifiers & 0x4) != 0) state[0x10] = 0x80;
         var buffer = new char[8];
-        // Flag 0x4 keeps the keyboard's dead-key state untouched; a negative count means a dead key, which is still blocked.
+        // 0x4: leave dead-key state alone. A negative count is a dead key, still blocked.
         int count = ToUnicodeEx(virtualKey, MapVirtualKeyEx(virtualKey, 0, layout), state, buffer, buffer.Length, 0x4, layout);
         return count != 0 && !char.IsControl(buffer[0]) ? new string(buffer, 0, Math.Max(count, 1)) : null;
     }

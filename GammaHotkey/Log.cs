@@ -2,7 +2,7 @@ using System.IO;
 
 namespace GammaHotkey;
 
-// Daily log files under %LOCALAPPDATA%\GammaHotkey\logs; only the newest five are kept. Never throws.
+// Daily log in %LOCALAPPDATA%\GammaHotkey\logs, keeps the newest 5 files. Never throws.
 internal static class Log
 {
     private const int KeepFiles = 5;

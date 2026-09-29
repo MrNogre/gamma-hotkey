@@ -45,7 +45,7 @@ public sealed class AppSettings
             var result = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
             if (result is null) throw new JsonException("Invalid settings values.");
             if (version == 1) MigrateV1(result, root);
-            // Earlier builds allowed up to 6.0, but drivers reject ramps above 4.0; keep those profiles usable at the new maximum.
+            // Older builds allowed gamma up to 6; clamp to the new 4.0 maximum.
             foreach (var profile in result.Profiles ?? [])
                 if (profile is { Gamma: > 4 and <= 6 }) profile.Gamma = 4;
             if (!result.IsValid()) throw new JsonException("Invalid settings values.");
@@ -58,7 +58,7 @@ public sealed class AppSettings
         }
     }
 
-    // Keeps the rejected file next to the settings so the next save of the defaults does not destroy it.
+    // Copies an unreadable settings file aside so saving defaults won't overwrite it.
     private static string BackupNote(string path)
     {
         string backup = Path.Combine(Path.GetDirectoryName(path)!, $"settings.invalid-{DateTime.Now:yyyyMMdd-HHmmss}.json");
@@ -70,7 +70,7 @@ public sealed class AppSettings
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return ""; }
     }
 
-    // v1 stored a single legacy gamma when profiles were absent, and bare hotkeys that were always Ctrl+Alt.
+    // v1: hotkeys were always Ctrl+Alt; a file without profiles used brightGamma.
     private static void MigrateV1(AppSettings result, JsonElement root)
     {
         if (!root.TryGetProperty("profiles", out _))
@@ -117,9 +117,8 @@ public sealed class AppSettings
     };
 }
 
-// Hotkey text is "Ctrl+Alt+Shift+Key" with any subset of modifiers in that fixed order.
-// Key is A-Z, 0-9 or F1-F12; letters and digits need Ctrl or Alt so plain typing is never blocked.
-// Win is not offered: the shell reserves most Win combinations and the key never reaches the capture box.
+// Format: "Ctrl+Alt+Shift+Key", modifiers optional but in this order; Key is A-Z, 0-9 or F1-F12.
+// Letters and digits need Ctrl or Alt so normal typing is never blocked.
 internal static class Hotkey
 {
     private static readonly (string Name, uint Flag)[] Modifiers = [("Ctrl", 0x2), ("Alt", 0x1), ("Shift", 0x4)];

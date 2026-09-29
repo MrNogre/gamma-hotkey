@@ -127,7 +127,7 @@ public partial class MainWindow : Window
         try { settings.Save(AppSettings.DefaultPath); settingsWarning = null; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            // ArgumentException means the UI let an invalid state through: an internal error, not a user mistake.
+            // ArgumentException here is an app bug, not a user error.
             Log.Write("Settings save failed: " + ex);
             settingsWarning = "Settings could not be saved.";
         }
@@ -575,8 +575,7 @@ public partial class MainWindow : Window
             }
     }
 
-    // Called from crash handlers, possibly off the UI thread; must never throw.
-    // ponytail: one coarse lock; a crash racing a UI-thread apply makes restore report failure rather than throw.
+    // Called from crash handlers, possibly off the UI thread. Never throws.
     internal void EmergencyRestore()
     {
         lock (restoreGate)

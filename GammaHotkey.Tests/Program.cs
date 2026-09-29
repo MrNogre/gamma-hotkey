@@ -306,10 +306,10 @@ var tests = new (string Name, Action Run)[]
         Check(!Hotkey.TryParse("Alt+Win+7", out _, out _) && !Hotkey.TryParse("Win+F5", out _, out _));
         Check(Hotkey.TryParse("Shift+F1", out modifiers, out key) && modifiers == 0x4 && key == 0x70);
         Check(!Hotkey.TryParse("Shift+Q", out _, out _) && !Hotkey.TryParse("Q", out _, out _) && !Hotkey.TryParse(null, out _, out _));
-        // Only exact Ctrl+Alt(+Shift) letter/digit combinations can collide with AltGr typing; layout-specific results are checked manually.
+        // Layout-specific results are checked manually.
         Check(NativeMethods.AltGrCharacter(0x6, 'V') is null && NativeMethods.AltGrCharacter(0xB, 'V') is null &&
             NativeMethods.AltGrCharacter(0x3, 0x74) is null && NativeMethods.AltGrCharacter(0x0, 0x78) is null);
-        // Exercise the native path on every letter and digit; a mis-marshaled buffer corrupts the heap here.
+        // Regression: a mis-marshaled buffer crashed here.
         for (int round = 0; round < 50; round++)
             foreach (uint combination in new uint[] { 0x3, 0x7 })
                 foreach (char letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
