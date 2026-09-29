@@ -6,7 +6,7 @@ A small Windows 10/11 app for adjusting gamma on **SDR displays**. Create profil
 
 ## Get started
 
-Download `gamma-hotkey-v0.1.0-win-x64.zip` from [Releases](https://github.com/MrNogre/gamma-hotkey/releases), extract it to a permanent folder, and run `GammaHotkey.exe`. No installer or separate .NET runtime is required. Keep the executable in place if you enable **Start with Windows**.
+Download `gamma-hotkey-v0.1.1-win-x64.zip` from [Releases](https://github.com/MrNogre/gamma-hotkey/releases), extract it to a permanent folder, and run `GammaHotkey.exe`. No installer or separate .NET runtime is required. Keep the executable in place if you enable **Start with Windows**.
 
 To run from source instead, install the .NET 9 SDK and use:
 
