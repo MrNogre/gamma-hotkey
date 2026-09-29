@@ -6,6 +6,7 @@ internal static class NativeMethods
 {
     internal const int WmHotkey = 0x0312;
     internal const int WmDisplayChange = 0x007E;
+    internal const int WmInputLangChange = 0x0051;
     internal const uint ModNoRepeat = 0x4000;
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
@@ -141,6 +142,31 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool UnregisterHotKey(nint window, int id);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetKeyboardLayout(uint thread);
+
+    [DllImport("user32.dll")]
+    private static extern uint MapVirtualKeyEx(uint code, uint mapType, nint layout);
+
+    [DllImport("user32.dll")]
+    private static extern int ToUnicodeEx(uint virtualKey, uint scanCode, byte[] keyState,
+        [Out, MarshalAs(UnmanagedType.LPArray)] char[] buffer, int bufferSize, uint flags, nint layout);
+
+    // RegisterHotKey matches modifiers exactly, so only Ctrl+Alt(+Shift) without Win collides with AltGr typing.
+    // Returns the character the key types with AltGr on the current layout, or null if nothing is blocked.
+    internal static string? AltGrCharacter(uint modifiers, uint virtualKey)
+    {
+        if ((modifiers & 0xB) != 0x3 || virtualKey >= 0x70) return null;
+        nint layout = GetKeyboardLayout(0);
+        var state = new byte[256];
+        state[0x11] = state[0x12] = 0x80;
+        if ((modifiers & 0x4) != 0) state[0x10] = 0x80;
+        var buffer = new char[8];
+        // Flag 0x4 keeps the keyboard's dead-key state untouched; a negative count means a dead key, which is still blocked.
+        int count = ToUnicodeEx(virtualKey, MapVirtualKeyEx(virtualKey, 0, layout), state, buffer, buffer.Length, 0x4, layout);
+        return count != 0 && !char.IsControl(buffer[0]) ? new string(buffer, 0, Math.Max(count, 1)) : null;
+    }
 
     internal static bool Read(nint dc, out GammaRamp? ramp)
     {

@@ -239,6 +239,9 @@ var tests = new (string Name, Action Run)[]
         Check(Hotkey.TryParse("Alt+Win+7", out modifiers, out key) && modifiers == 0x9 && key == '7');
         Check(Hotkey.TryParse("Shift+F1", out modifiers, out key) && modifiers == 0x4 && key == 0x70);
         Check(!Hotkey.TryParse("Shift+Q", out _, out _) && !Hotkey.TryParse("Q", out _, out _) && !Hotkey.TryParse(null, out _, out _));
+        // Only exact Ctrl+Alt(+Shift) letter/digit combinations can collide with AltGr typing; layout-specific results are checked manually.
+        Check(NativeMethods.AltGrCharacter(0x6, 'V') is null && NativeMethods.AltGrCharacter(0xB, 'V') is null &&
+            NativeMethods.AltGrCharacter(0x3, 0x74) is null && NativeMethods.AltGrCharacter(0x0, 0x78) is null);
     })
 };
 

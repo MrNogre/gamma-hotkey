@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private nint hwnd;
     private string? settingsWarning;
     private string? profileHotkeyWarning;
+    private string? altGrWarning;
     private string? shortcutFeedback;
     private bool loading;
     private bool capturingShortcut;
@@ -96,6 +97,8 @@ public partial class MainWindow : Window
         Activated += (_, _) =>
         {
             if (settings.Theme == "System") ApplyTheme();
+            UpdateAltGrWarning();
+            UpdateView();
             if (!exiting && ShortcutInput.IsKeyboardFocused && !capturingShortcut)
             { capturingShortcut = true; RegisterProfileHotkeys(); }
         };
@@ -258,6 +261,7 @@ public partial class MainWindow : Window
         foreach (int id in registeredProfiles) NativeMethods.UnregisterHotKey(hwnd, id);
         registeredProfiles.Clear();
         profileHotkeyWarning = null;
+        UpdateAltGrWarning();
         if (!capturingShortcut)
             for (int i = 0; i < settings.Profiles.Count; i++)
             {
@@ -272,6 +276,16 @@ public partial class MainWindow : Window
         UpdateView();
     }
 
+    private void UpdateAltGrWarning()
+    {
+        var conflicts = settings.Profiles
+            .Select(p => Hotkey.TryParse(p.Hotkey, out uint modifiers, out uint virtualKey) &&
+                NativeMethods.AltGrCharacter(modifiers, virtualKey) is { } character ? $"{p.Hotkey} types \"{character}\"" : null)
+            .Where(c => c is not null).ToArray();
+        altGrWarning = conflicts.Length == 0 ? null :
+            string.Join(", ", conflicts) + " on this keyboard layout; the shortcut blocks that character.";
+    }
+
     private nint WndProc(nint handle, int message, nint wParam, nint lParam, ref bool handled)
     {
         if (message == NativeMethods.WmHotkey && (int)wParam >= ProfileHotkeyId &&
@@ -283,6 +297,7 @@ public partial class MainWindow : Window
             handled = true;
         }
         else if (message == NativeMethods.WmDisplayChange) ScheduleDisplayRefresh();
+        else if (message == NativeMethods.WmInputLangChange) { UpdateAltGrWarning(); UpdateView(); }
         else if (message == 0x001A && settings.Theme == "System" && !exiting) Dispatcher.BeginInvoke(ApplyTheme);
         return 0;
     }
@@ -338,7 +353,7 @@ public partial class MainWindow : Window
             row.Children.Add(status);
             DisplayList.Children.Add(row);
         }
-        Note.Text = string.Join("  ·  ", new[] { shortcutFeedback, settingsWarning, profileHotkeyWarning }.Where(w => w is not null));
+        Note.Text = string.Join("  ·  ", new[] { shortcutFeedback, settingsWarning, profileHotkeyWarning, altGrWarning }.Where(w => w is not null));
         Note.SetResourceReference(TextBlock.ForegroundProperty, Note.Text == "" ? "Muted" : "Warning");
         Note.ToolTip = Note.Text == "" ? null : Note.Text;
         if (Note.Text == "") Note.Text = "Close hides to tray";
