@@ -192,7 +192,6 @@
                         <TextBlock Text="Hotkey" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" x:Name="ShortcutInput" IsReadOnly="True" GotFocus="ShortcutInput_GotFocus" LostFocus="ShortcutInput_LostFocus" PreviewKeyDown="ShortcutInput_PreviewKeyDown" AutomationProperties.Name="Profile hotkey" ToolTip="Press a shortcut: F1–F12 alone or with modifiers; letters and digits need Ctrl, Alt or Win. Delete clears; Escape keeps current."/>
                     </Grid>
-                    <TextBlock x:Name="ShortcutFeedback" Foreground="{DynamicResource Warning}" Margin="0,5,0,0" Visibility="Collapsed"/>
                 </StackPanel>
             </Border>
             <TextBlock Grid.Row="2" Text="DISPLAY STATUS" FontWeight="Bold" Margin="4,14,0,9"/>
@@ -229,7 +228,7 @@
             <TextBlock Grid.Row="1" x:Name="VersionText" HorizontalAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,10,0,0"/>
         </Grid>
         <Grid Grid.Row="3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <TextBlock x:Name="Note" Text="Close hides to tray" VerticalAlignment="Center" Foreground="{DynamicResource Muted}"/>
+            <TextBlock x:Name="Note" Text="Close hides to tray" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" Foreground="{DynamicResource Muted}"/>
             <Button Grid.Column="1" Content="Exit" Width="72" Click="Exit_Click"/>
         </Grid>
     </Grid>

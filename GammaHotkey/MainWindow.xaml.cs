@@ -338,9 +338,9 @@ public partial class MainWindow : Window
             row.Children.Add(status);
             DisplayList.Children.Add(row);
         }
-        ShortcutFeedback.Text = shortcutFeedback ?? "";
-        ShortcutFeedback.Visibility = shortcutFeedback is null ? Visibility.Collapsed : Visibility.Visible;
-        Note.Text = string.Join("  ·  ", new[] { settingsWarning, profileHotkeyWarning }.Where(w => w is not null));
+        Note.Text = string.Join("  ·  ", new[] { shortcutFeedback, settingsWarning, profileHotkeyWarning }.Where(w => w is not null));
+        Note.SetResourceReference(TextBlock.ForegroundProperty, Note.Text == "" ? "Muted" : "Warning");
+        Note.ToolTip = Note.Text == "" ? null : Note.Text;
         if (Note.Text == "") Note.Text = "Close hides to tray";
         tray.Text = controller.HasFailedRestore ? "Gamma Hotkey: restore failed" :
             controller.HasOverride ? "Gamma Hotkey: override detected" : "Gamma Hotkey";
@@ -466,8 +466,10 @@ public partial class MainWindow : Window
     {
         if (name is null) return false;
         if (name.Length > 0 && !settings.Profiles.Where((_, i) => i != exclude)
-            .Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))) return true;
-        MessageBox.Show(this, "Enter a unique, non-empty profile name.", "Gamma Hotkey");
+            .Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
+        { shortcutFeedback = null; return true; }
+        shortcutFeedback = "Enter a unique, non-empty profile name.";
+        UpdateView();
         return false;
     }
 
