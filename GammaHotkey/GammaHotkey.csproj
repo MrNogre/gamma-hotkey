@@ -3,6 +3,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
     <Version>0.1.1</Version>
+    <AssemblyTitle>Gamma Hotkey</AssemblyTitle>
+    <Description>Per-profile gamma ramps via global hotkeys</Description>
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app.ico</ApplicationIcon>
