@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-09-30
 
 ### Added
 - Hotkeys accept any combination of Ctrl, Alt and Shift; settings move to schema v2 and v1 files are migrated.
