@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet restore GammaHotkey.sln
+      - run: dotnet build GammaHotkey.sln -c Release --no-restore
+      - run: dotnet test GammaHotkey.sln -c Release --no-build --logger trx --collect:"XPlat Code Coverage"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results
+          path: GammaHotkey.Tests/TestResults/
+
+  format:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet format GammaHotkey.sln --verify-no-changes
