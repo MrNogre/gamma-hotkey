@@ -41,8 +41,9 @@ jobs:
         run: |
           mkdir dist
           cp GammaHotkey/bin/publish/win-x64/GammaHotkey.exe dist/
+          cp LICENSE THIRD-PARTY-NOTICES.md GammaHotkey/Fonts/OFL.txt dist/
           cd dist
-          7z a -tzip "gamma-hotkey-$GITHUB_REF_NAME-win-x64.zip" GammaHotkey.exe
+          7z a -tzip "gamma-hotkey-$GITHUB_REF_NAME-win-x64.zip" GammaHotkey.exe LICENSE THIRD-PARTY-NOTICES.md OFL.txt
           sha256sum *.zip GammaHotkey.exe > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
