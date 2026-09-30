@@ -1,22 +1,22 @@
-using Microsoft.Win32;
-using System.IO;
-using Brush = System.Windows.Media.Brush;
-using Color = System.Windows.Media.Color;
-using ColorConverter = System.Windows.Media.ColorConverter;
-using TextBox = System.Windows.Controls.TextBox;
-using Button = System.Windows.Controls.Button;
-using Orientation = System.Windows.Controls.Orientation;
-using MessageBox = System.Windows.MessageBox;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
-using System.Windows.Controls.Primitives;
+using Microsoft.Win32;
+using Brush = System.Windows.Media.Brush;
+using Button = System.Windows.Controls.Button;
+using Color = System.Windows.Media.Color;
+using ColorConverter = System.Windows.Media.ColorConverter;
+using MessageBox = System.Windows.MessageBox;
+using Orientation = System.Windows.Controls.Orientation;
+using TextBox = System.Windows.Controls.TextBox;
 using WF = System.Windows.Forms;
 
 namespace GammaHotkey;
@@ -84,7 +84,9 @@ public partial class MainWindow : Window
         tray = new WF.NotifyIcon
         {
             Icon = System.Drawing.Icon.ExtractAssociatedIcon(WF.Application.ExecutablePath) ?? System.Drawing.SystemIcons.Application,
-            Text = "Gamma Hotkey", ContextMenuStrip = menu, Visible = true
+            Text = "Gamma Hotkey",
+            ContextMenuStrip = menu,
+            Visible = true
         };
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow);
 
@@ -352,15 +354,23 @@ public partial class MainWindow : Window
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
             row.ColumnDefinitions.Add(new ColumnDefinition());
-            row.Children.Add(new System.Windows.Shapes.Ellipse { Width = 10, Height = 10,
+            row.Children.Add(new System.Windows.Shapes.Ellipse
+            {
+                Width = 10,
+                Height = 10,
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
-                Fill = (Brush)Resources[warning ? "Warning" : "Accent"] });
+                Fill = (Brush)Resources[warning ? "Warning" : "Accent"]
+            });
             var title = new TextBlock { Text = name, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(title, 1);
             row.Children.Add(title);
-            var status = new TextBlock { Text = display.Status, VerticalAlignment = VerticalAlignment.Center,
-                Foreground = (Brush)Resources[warning ? "Warning" : "Muted"] };
+            var status = new TextBlock
+            {
+                Text = display.Status,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = (Brush)Resources[warning ? "Warning" : "Muted"]
+            };
             Grid.SetColumn(status, 2);
             row.Children.Add(status);
             DisplayList.Children.Add(row);
@@ -455,15 +465,33 @@ public partial class MainWindow : Window
     {
         var dialog = Dialog(title, 350, 185);
         var panel = (StackPanel)dialog.Content;
-        var input = new TextBox { Text = initial, MaxLength = 60, Margin = new Thickness(0, 0, 0, 18),
-            Style = (Style)Resources[typeof(TextBox)] };
+        var input = new TextBox
+        {
+            Text = initial,
+            MaxLength = 60,
+            Margin = new Thickness(0, 0, 0, 18),
+            Style = (Style)Resources[typeof(TextBox)]
+        };
         panel.Children.Add(input);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right };
-        var ok = new Button { Content = title == "New profile" ? "Create" : "Rename", Width = 90, IsDefault = true,
-            Style = (Style)Resources[typeof(Button)], Background = (Brush)Resources["Accent"],
-            Foreground = (Brush)Resources["Background"], Tag = "Accent" };
-        var cancel = new Button { Content = "Cancel", Width = 90, Margin = new Thickness(8, 0, 0, 0), IsCancel = true,
-            Style = (Style)Resources[typeof(Button)] };
+        var ok = new Button
+        {
+            Content = title == "New profile" ? "Create" : "Rename",
+            Width = 90,
+            IsDefault = true,
+            Style = (Style)Resources[typeof(Button)],
+            Background = (Brush)Resources["Accent"],
+            Foreground = (Brush)Resources["Background"],
+            Tag = "Accent"
+        };
+        var cancel = new Button
+        {
+            Content = "Cancel",
+            Width = 90,
+            Margin = new Thickness(8, 0, 0, 0),
+            IsCancel = true,
+            Style = (Style)Resources[typeof(Button)]
+        };
         ok.Click += (_, _) => dialog.DialogResult = true;
         buttons.Children.Add(ok); buttons.Children.Add(cancel); panel.Children.Add(buttons);
         dialog.Loaded += (_, _) => { input.SelectAll(); input.Focus(); };
@@ -472,10 +500,19 @@ public partial class MainWindow : Window
 
     private Window Dialog(string title, double width, double height)
     {
-        var dialog = new Window { Title = title, Owner = this, Width = width, Height = height,
-            ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = (Brush)Resources["Background"], Foreground = (Brush)Resources["Text"],
-            FontFamily = FontFamily, FontSize = FontSize };
+        var dialog = new Window
+        {
+            Title = title,
+            Owner = this,
+            Width = width,
+            Height = height,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = (Brush)Resources["Background"],
+            Foreground = (Brush)Resources["Text"],
+            FontFamily = FontFamily,
+            FontSize = FontSize
+        };
         dialog.Resources.MergedDictionaries.Add(Resources);
         var panel = new StackPanel { Margin = new Thickness(18) };
         dialog.Content = panel;
@@ -527,10 +564,23 @@ public partial class MainWindow : Window
         var panel = (StackPanel)dialog.Content;
         panel.Children.Add(new TextBlock { Text = $"Delete profile '{settings.Profiles[index].Name}'?", Margin = new Thickness(0, 0, 0, 18), Foreground = (Brush)Resources["Text"] });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right };
-        var yes = new Button { Content = "Delete", Width = 90, Style = (Style)Resources[typeof(Button)],
-            Background = (Brush)Resources["Accent"], Foreground = (Brush)Resources["Background"], Tag = "Accent" };
-        var no = new Button { Content = "Cancel", Width = 90, Margin = new Thickness(8, 0, 0, 0), IsCancel = true,
-            Style = (Style)Resources[typeof(Button)] };
+        var yes = new Button
+        {
+            Content = "Delete",
+            Width = 90,
+            Style = (Style)Resources[typeof(Button)],
+            Background = (Brush)Resources["Accent"],
+            Foreground = (Brush)Resources["Background"],
+            Tag = "Accent"
+        };
+        var no = new Button
+        {
+            Content = "Cancel",
+            Width = 90,
+            Margin = new Thickness(8, 0, 0, 0),
+            IsCancel = true,
+            Style = (Style)Resources[typeof(Button)]
+        };
         yes.Click += (_, _) => dialog.DialogResult = true;
         buttons.Children.Add(yes); buttons.Children.Add(no); panel.Children.Add(buttons);
         if (dialog.ShowDialog() != true) return;

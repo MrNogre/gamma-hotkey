@@ -81,25 +81,38 @@ internal static class NativeMethods
             var modes = new byte[Math.Max(1, checked((int)modeCount * 64))];
             var handle = GCHandle.Alloc(modes, GCHandleType.Pinned);
             int result;
-            try { result = QueryDisplayConfig(activePaths, ref pathCount, paths, ref modeCount,
-                handle.AddrOfPinnedObject(), 0); }
+            try
+            {
+                result = QueryDisplayConfig(activePaths, ref pathCount, paths, ref modeCount,
+                handle.AddrOfPinnedObject(), 0);
+            }
             finally { handle.Free(); }
             if (result == 122) continue;
             if (result != 0) break;
             foreach (var path in paths.Take((int)pathCount))
             {
-                var source = new SourceName { Header = new DeviceInfoHeader
+                var source = new SourceName
                 {
-                    Type = 1, Size = (uint)Marshal.SizeOf<SourceName>(),
-                    Adapter = path.Source.Adapter, Id = path.Source.Id
-                } };
+                    Header = new DeviceInfoHeader
+                    {
+                        Type = 1,
+                        Size = (uint)Marshal.SizeOf<SourceName>(),
+                        Adapter = path.Source.Adapter,
+                        Id = path.Source.Id
+                    }
+                };
                 if (DisplayConfigGetDeviceInfo(ref source) != 0 ||
                     !string.Equals(source.Name, deviceName, StringComparison.OrdinalIgnoreCase)) continue;
-                var target = new TargetName { Header = new DeviceInfoHeader
+                var target = new TargetName
                 {
-                    Type = 2, Size = (uint)Marshal.SizeOf<TargetName>(),
-                    Adapter = path.Target.Adapter, Id = path.Target.Id
-                } };
+                    Header = new DeviceInfoHeader
+                    {
+                        Type = 2,
+                        Size = (uint)Marshal.SizeOf<TargetName>(),
+                        Adapter = path.Target.Adapter,
+                        Id = path.Target.Id
+                    }
+                };
                 if (DisplayConfigGetDeviceInfo(ref target) == 0 &&
                     !string.IsNullOrWhiteSpace(target.Name))
                     return FormatDisplayLabel(deviceName, target.Name);
