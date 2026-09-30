@@ -44,7 +44,7 @@ jobs:
           cp LICENSE THIRD-PARTY-NOTICES.md GammaHotkey/Fonts/OFL.txt dist/
           cd dist
           7z a -tzip "gamma-hotkey-$GITHUB_REF_NAME-win-x64.zip" GammaHotkey.exe LICENSE THIRD-PARTY-NOTICES.md OFL.txt
-          sha256sum *.zip GammaHotkey.exe > SHA256SUMS.txt
+          sha256sum *.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - uses: actions/attest-build-provenance@v4
@@ -60,4 +60,4 @@ jobs:
         run: |
           notes=$(awk -v v="[${GITHUB_REF_NAME#v}]" '/^## /{p = index($0, v) > 0; next} p' CHANGELOG.md 2>/dev/null || true)
           if [ -n "$notes" ]; then args=(--notes "$notes"); else args=(--generate-notes); fi
-          gh release create "$GITHUB_REF_NAME" --draft --verify-tag "${args[@]}" dist/*.zip dist/SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "Gamma Hotkey $GITHUB_REF_NAME" "${args[@]}" dist/*.zip dist/SHA256SUMS.txt
