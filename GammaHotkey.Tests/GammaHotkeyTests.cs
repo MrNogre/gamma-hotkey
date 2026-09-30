@@ -342,6 +342,110 @@ public class GammaHotkeyTests
                     Assert.True(NativeMethods.AltGrCharacter(combination, letter) is null or { Length: >= 1 and <= 8 });
     }
 
+    public static TheoryData<double> GammaSteps => [.. Enumerable.Range(2, 15).Select(i => i * 0.25)];
+
+    [Theory]
+    [MemberData(nameof(GammaSteps))]
+    public void BrightIsMonotonicWithFixedEndpointsAcrossGammaRange(double gamma)
+    {
+        foreach (var source in new[] { IdentityRamp(), CurvedRamp() })
+        {
+            var bright = source.Bright(gamma);
+            for (int channel = 0; channel < 3; channel++)
+            {
+                int offset = channel * 256;
+                Assert.Equal(source[offset], bright[offset]);
+                Assert.Equal(source[offset + 255], bright[offset + 255]);
+                for (int i = 1; i < 256; i++) Assert.True(bright[offset + i] >= bright[offset + i - 1]);
+            }
+        }
+    }
+
+    [Fact]
+    public void MatchesAcceptsDifferencesUpToTolerance()
+    {
+        var source = IdentityRamp();
+        var values = source.ToArray();
+        values[300] += GammaRamp.ReadbackTolerance;
+        Assert.True(source.Matches(new GammaRamp(values)));
+        values[300]++;
+        Assert.False(source.Matches(new GammaRamp(values)));
+    }
+
+    [Fact]
+    public void ReadBackMismatchIsNotConfirmed()
+    {
+        var original = IdentityRamp();
+        // The driver accepts the write but keeps the old ramp.
+        var controller = new GammaController(() => ["A"], _ => original, (_, _) => true);
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        var display = controller.Displays.Single();
+        Assert.False(display.Confirmed);
+        Assert.True(display.Overridden);
+        Assert.Equal("Not confirmed: read-back differs", display.Status);
+        Assert.False(controller.HasAppliedRamp);
+    }
+
+    [Fact]
+    public void ExternalBaselineRestoreIsReportedAndNotRestoredAgain()
+    {
+        var original = IdentityRamp();
+        GammaRamp current = original;
+        int writes = 0;
+        var controller = new GammaController(() => ["A"], _ => current, (_, target) =>
+        { writes++; current = target; return true; });
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        current = original;
+        controller.CheckForOverrides();
+        var display = controller.Displays.Single();
+        Assert.False(display.Confirmed);
+        Assert.Equal("Overridden: baseline restored externally", display.Status);
+        controller.Restore();
+        Assert.Equal(1, writes);
+        Assert.Equal("Restore skipped: external ramp change", display.Status);
+    }
+
+    [Fact]
+    public void DisplayChangeRestoresAndRecapturesDisplays()
+    {
+        var original = IdentityRamp();
+        var ramps = new Dictionary<string, GammaRamp> { ["A"] = original, ["B"] = original, ["C"] = original };
+        string[] present = ["A", "B"];
+        var writes = new List<string>();
+        var controller = new GammaController(() => present, name => ramps[name], (name, ramp) =>
+        { writes.Add(name); ramps[name] = ramp; return true; });
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        writes.Clear();
+        present = ["A", "C"];
+        controller.HandleDisplayChange();
+        Assert.True(writes.SequenceEqual(["A"]) && ramps["A"].Matches(original));
+        Assert.True(controller.Displays.Select(d => d.DeviceName).Order().SequenceEqual(["A", "C"]));
+        Assert.All(controller.Displays, d => Assert.Equal("Baseline captured", d.Status));
+        Assert.False(controller.HasAppliedRamp);
+    }
+
+    [Fact]
+    public void SettingsRejectLongAndDuplicateProfileNames()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());
+        string path = Path.Combine(directory, "settings.json");
+        try
+        {
+            var settings = new AppSettings();
+            settings.Profiles[0].Name = new string('N', 60);
+            settings.Save(path);
+            settings.Profiles[0].Name = new string('N', 61);
+            Assert.ThrowsAny<ArgumentException>(() => settings.Save(path));
+            settings.Profiles[0].Name = "Gaming";
+            settings.Profiles.Add(new GammaProfile { Name = "GAMING" });
+            Assert.ThrowsAny<ArgumentException>(() => settings.Save(path));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     private static GammaRamp IdentityRamp()
     {
         var values = new ushort[GammaRamp.Length];
