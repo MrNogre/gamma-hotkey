@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: v0.2.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: input
+    id: display
+    attributes:
+      label: GPU, driver and displays
+      placeholder: NVIDIA RTX 3070, driver 566.36, two monitors
+  - type: checkboxes
+    id: hdr
+    attributes:
+      label: HDR
+      options:
+        - label: HDR is off on the affected display
+          required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce and what happened
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Relevant lines from the log file in %LOCALAPPDATA%\GammaHotkey\logs
+      render: text
