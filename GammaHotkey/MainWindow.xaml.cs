@@ -306,7 +306,10 @@ public partial class MainWindow : Window
             (int)wParam < ProfileHotkeyId + settings.Profiles.Count)
         {
             SelectProfile((int)wParam - ProfileHotkeyId);
+            // Sync the combo without re-entering SelectProfile (second save).
+            loading = true;
             ProfileSelect.SelectedIndex = settings.SelectedProfile;
+            loading = false;
             RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile]));
             handled = true;
         }
