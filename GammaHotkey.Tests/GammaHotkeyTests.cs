@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Windows.Input;
 using GammaHotkey;
 using Xunit;
 
@@ -320,6 +322,49 @@ public class GammaHotkeyTests
                 AppSettings.Load(path, out _).Theme == "Light");
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void KeyPressMapsToShortcutTextOrUserMessage()
+    {
+        Assert.Equal("Ctrl+Alt+K", Hotkey.FromKeyPress(Key.K, ModifierKeys.Control | ModifierKeys.Alt, out string? error));
+        Assert.Null(error);
+        Assert.Equal("Alt+7", Hotkey.FromKeyPress(Key.D7, ModifierKeys.Alt, out _));
+        Assert.Equal("Ctrl+Alt+Shift+F12", Hotkey.FromKeyPress(Key.F12, ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift, out _));
+        Assert.Equal("F9", Hotkey.FromKeyPress(Key.F9, ModifierKeys.None, out _));
+        Assert.Null(Hotkey.FromKeyPress(Key.NumPad3, ModifierKeys.Control, out error));
+        Assert.Equal("Use the top-row digits, not the numpad.", error);
+        Assert.Null(Hotkey.FromKeyPress(Key.Space, ModifierKeys.Control, out error));
+        Assert.Equal("Use a letter, digit, or F1–F12, with optional Ctrl, Alt or Shift.", error);
+        Assert.Null(Hotkey.FromKeyPress(Key.Q, ModifierKeys.Shift, out error));
+        Assert.Equal("Letters and digits need Ctrl or Alt.", error);
+        Assert.Equal("Ctrl+Shift+", Hotkey.Prefix(ModifierKeys.Shift | ModifierKeys.Control));
+    }
+
+    [Fact]
+    public void GammaTextAcceptsCurrentOrInvariantFormatInRange()
+    {
+        var hungarian = CultureInfo.GetCultureInfo("hu-HU");
+        Assert.True(GammaProfile.TryParseGamma("1,25", hungarian, out double value) && value == 1.25);
+        Assert.True(GammaProfile.TryParseGamma("1.25", hungarian, out value) && value == 1.25);
+        Assert.True(GammaProfile.TryParseGamma("0.5", CultureInfo.InvariantCulture, out value) && value == 0.5);
+        Assert.True(GammaProfile.TryParseGamma("4", CultureInfo.InvariantCulture, out value) && value == 4);
+        foreach (string invalid in new[] { "0.49", "4.01", "1.255", "abc", "", "NaN", "Infinity" })
+            Assert.False(GammaProfile.TryParseGamma(invalid, hungarian, out _));
+    }
+
+    [Fact]
+    public void ProfileNamesAndHotkeysMustBeUnique()
+    {
+        var settings = new AppSettings();
+        settings.Profiles.Add(new GammaProfile { Name = "Gaming", Hotkey = "Ctrl+Alt+G" });
+        Assert.False(settings.NameAvailable("gaming"));
+        Assert.False(settings.NameAvailable(""));
+        Assert.True(settings.NameAvailable("Gaming", exclude: 1));
+        Assert.True(settings.NameAvailable("Movies"));
+        Assert.True(settings.HotkeyTaken("Ctrl+Alt+G", exclude: 0));
+        Assert.False(settings.HotkeyTaken("Ctrl+Alt+G", exclude: 1));
+        Assert.False(settings.HotkeyTaken("", exclude: 0));
     }
 
     [Fact]

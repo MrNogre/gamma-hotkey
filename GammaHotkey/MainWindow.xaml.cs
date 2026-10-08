@@ -191,9 +191,7 @@ public partial class MainWindow : Window
 
     private void CommitGammaInput()
     {
-        if ((double.TryParse(GammaInput.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out double value) ||
-             double.TryParse(GammaInput.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) &&
-            double.IsFinite(value) && value >= 0.5 && value <= 4 && Math.Abs(value * 100 - Math.Round(value * 100)) < 0.000001)
+        if (GammaProfile.TryParseGamma(GammaInput.Text, CultureInfo.CurrentCulture, out double value))
         {
             shortcutFeedback = null;
             CommitGamma(value);
@@ -235,32 +233,19 @@ public partial class MainWindow : Window
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key == Key.Escape) { LoadProfile(); return; }
         if ((key == Key.Delete || key == Key.Back) && Keyboard.Modifiers == ModifierKeys.None) { SetShortcut(""); return; }
-        var modifiers = Keyboard.Modifiers;
-        string prefix = (modifiers.HasFlag(ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(ModifierKeys.Alt) ? "Alt+" : "") +
-            (modifiers.HasFlag(ModifierKeys.Shift) ? "Shift+" : "");
         if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift)
         {
-            ShortcutInput.Text = prefix + "…";
+            ShortcutInput.Text = Hotkey.Prefix(Keyboard.Modifiers) + "…";
             return;
         }
-        if (key is >= Key.NumPad0 and <= Key.NumPad9)
-        { shortcutFeedback = "Use the top-row digits, not the numpad."; UpdateView(); return; }
-        string? value = key switch
-        {
-            >= Key.A and <= Key.Z => key.ToString(),
-            >= Key.D0 and <= Key.D9 => ((int)(key - Key.D0)).ToString(CultureInfo.InvariantCulture),
-            >= Key.F1 and <= Key.F12 => $"F{key - Key.F1 + 1}",
-            _ => null
-        };
-        if (value is null) { shortcutFeedback = "Use a letter, digit, or F1–F12, with optional Ctrl, Alt or Shift."; UpdateView(); return; }
-        if (!Hotkey.TryParse(prefix + value, out _, out _))
-        { shortcutFeedback = "Letters and digits need Ctrl or Alt."; UpdateView(); return; }
-        SetShortcut(prefix + value);
+        string? shortcut = Hotkey.FromKeyPress(key, Keyboard.Modifiers, out string? error);
+        if (shortcut is null) { shortcutFeedback = error; UpdateView(); return; }
+        SetShortcut(shortcut);
     }
 
     private void SetShortcut(string key)
     {
-        if (key != "" && settings.Profiles.Where((_, i) => i != settings.SelectedProfile).Any(p => p.Hotkey == key))
+        if (settings.HotkeyTaken(key, settings.SelectedProfile))
         { shortcutFeedback = "Already assigned to another profile."; UpdateView(); return; }
         shortcutFeedback = null;
         settings.Profiles[settings.SelectedProfile].Hotkey = key;
@@ -532,9 +517,7 @@ public partial class MainWindow : Window
     private bool ValidName(string? name, int exclude = -1)
     {
         if (name is null) return false;
-        if (name.Length > 0 && !settings.Profiles.Where((_, i) => i != exclude)
-            .Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
-        { shortcutFeedback = null; return true; }
+        if (settings.NameAvailable(name, exclude)) { shortcutFeedback = null; return true; }
         shortcutFeedback = "Enter a unique, non-empty profile name.";
         UpdateView();
         return false;
