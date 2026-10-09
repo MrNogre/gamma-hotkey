@@ -17,7 +17,9 @@ public sealed class GammaProfile
     internal static bool TryParseGamma(string text, CultureInfo culture, out double value) =>
         (double.TryParse(text, NumberStyles.Float, culture, out value) ||
          double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) &&
-        double.IsFinite(value) && value >= 0.5 && value <= 4 && Math.Abs(value * 100 - Math.Round(value * 100)) < 0.000001;
+        IsValidGamma(value) && Math.Abs(value * 100 - Math.Round(value * 100)) < 0.000001;
+
+    internal static bool IsValidGamma(double gamma) => double.IsFinite(gamma) && gamma >= 0.5 && gamma <= 4;
 }
 
 public sealed class AppSettings
@@ -110,12 +112,23 @@ public sealed class AppSettings
 
     private bool IsValid() => SchemaVersion == 2 && Theme is "Light" or "Dark" or "System" &&
         Profiles is { Count: > 0 } && SelectedProfile >= 0 && SelectedProfile < Profiles.Count &&
-        Profiles.All(p => p is not null && !string.IsNullOrWhiteSpace(p.Name) && p.Name.Length <= 60 &&
-            double.IsFinite(p.Gamma) && p.Gamma >= 0.5 && p.Gamma <= 4 &&
-            (p.Hotkey == "" || Hotkey.TryParse(p.Hotkey, out _, out _))) &&
-        Profiles.Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() == Profiles.Count &&
-        Profiles.Where(p => p.Hotkey != "").Select(p => p.Hotkey).Distinct().Count() ==
-            Profiles.Count(p => p.Hotkey != "");
+        Profiles.All(IsValidProfile) && HasUniqueNames() && HasUniqueHotkeys();
+
+    private static bool IsValidProfile(GammaProfile? profile) => profile is not null &&
+        !string.IsNullOrWhiteSpace(profile.Name) && profile.Name.Length <= 60 &&
+        GammaProfile.IsValidGamma(profile.Gamma) && IsValidHotkey(profile.Hotkey);
+
+    // An empty hotkey means none is assigned.
+    private static bool IsValidHotkey(string hotkey) => hotkey == "" || Hotkey.TryParse(hotkey, out _, out _);
+
+    private bool HasUniqueNames() =>
+        Profiles.Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() == Profiles.Count;
+
+    private bool HasUniqueHotkeys()
+    {
+        var hotkeys = Profiles.Select(p => p.Hotkey).Where(h => h != "").ToList();
+        return hotkeys.Distinct().Count() == hotkeys.Count;
+    }
 
     internal bool NameAvailable(string name, int exclude = -1) => name.Length > 0 &&
         !Profiles.Where((_, i) => i != exclude).Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));

@@ -508,6 +508,25 @@ public class GammaHotkeyTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
+    [Fact]
+    public void SettingsWithNullProfileOrHotkeyFallBackToDefaults()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());
+        string path = Path.Combine(directory, "settings.json");
+        try
+        {
+            Directory.CreateDirectory(directory);
+            foreach (string json in new[] { "{\"schemaVersion\":2,\"profiles\":[null]}",
+                "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"A\",\"gamma\":1,\"hotkey\":null}]}" })
+            {
+                File.WriteAllText(path, json);
+                var restored = AppSettings.Load(path, out var warning);
+                Assert.True(warning is not null && restored.Profiles.Count == 1 && restored.Profiles[0].Name == "Default");
+            }
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     private static GammaRamp IdentityRamp()
     {
         var values = new ushort[GammaRamp.Length];
