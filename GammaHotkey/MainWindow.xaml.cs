@@ -299,7 +299,7 @@ public partial class MainWindow : Window
         }
         else if (message == NativeMethods.WmDisplayChange) ScheduleDisplayRefresh();
         else if (message == NativeMethods.WmInputLangChange) { UpdateAltGrWarning(); UpdateView(); }
-        else if (message == NativeMethods.WmSettingChange &&settings.Theme == "System" && !exiting) Dispatcher.BeginInvoke(ApplyTheme);
+        else if (message == NativeMethods.WmSettingChange && settings.Theme == "System" && !exiting) Dispatcher.BeginInvoke(ApplyTheme);
         return 0;
     }
 
