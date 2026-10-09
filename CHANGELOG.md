@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Panic restore: `Ctrl+Alt+Shift+Backspace` or the tray menu's "Restore now" puts back the original gamma on every display the app still controls.
+
+### Fixed
+- Switching profiles with a hotkey saves the settings once instead of twice.
+
 ## [0.2.0] - 2026-09-30
 
 ### Added
