@@ -78,8 +78,10 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     private static extern int DisplayConfigGetDeviceInfo(ref TargetName name);
 
-    internal static string DisplayLabel(string deviceName)
+    // Active paths whose source is the given GDI device; clone mode yields several targets.
+    private static List<DisplayPath> PathsFor(string deviceName)
     {
+        var matches = new List<DisplayPath>();
         for (int attempt = 0; attempt < 2; attempt++)
         {
             if (GetDisplayConfigBufferSizes(QdcOnlyActivePaths, out uint pathCount, out uint modeCount) != 0) break;
@@ -97,33 +99,25 @@ internal static class NativeMethods
             if (result != 0) break;
             foreach (var path in paths.Take((int)pathCount))
             {
-                var source = new SourceName
-                {
-                    Header = new DeviceInfoHeader
-                    {
-                        Type = DisplayConfigDeviceInfoGetSourceName,
-                        Size = (uint)Marshal.SizeOf<SourceName>(),
-                        Adapter = path.Source.Adapter,
-                        Id = path.Source.Id
-                    }
-                };
-                if (DisplayConfigGetDeviceInfo(ref source) != 0 ||
-                    !string.Equals(source.Name, deviceName, StringComparison.OrdinalIgnoreCase)) continue;
-                var target = new TargetName
-                {
-                    Header = new DeviceInfoHeader
-                    {
-                        Type = DisplayConfigDeviceInfoGetTargetName,
-                        Size = (uint)Marshal.SizeOf<TargetName>(),
-                        Adapter = path.Target.Adapter,
-                        Id = path.Target.Id
-                    }
-                };
-                if (DisplayConfigGetDeviceInfo(ref target) == 0 &&
-                    !string.IsNullOrWhiteSpace(target.Name))
-                    return FormatDisplayLabel(deviceName, target.Name);
+                var source = new SourceName { Header = Header<SourceName>(DisplayConfigDeviceInfoGetSourceName, path.Source.Adapter, path.Source.Id) };
+                if (DisplayConfigGetDeviceInfo(ref source) == 0 &&
+                    string.Equals(source.Name, deviceName, StringComparison.OrdinalIgnoreCase)) matches.Add(path);
             }
             break;
+        }
+        return matches;
+    }
+
+    private static DeviceInfoHeader Header<T>(uint type, long adapter, uint id) =>
+        new() { Type = type, Size = (uint)Marshal.SizeOf<T>(), Adapter = adapter, Id = id };
+
+    internal static string DisplayLabel(string deviceName)
+    {
+        foreach (var path in PathsFor(deviceName))
+        {
+            var target = new TargetName { Header = Header<TargetName>(DisplayConfigDeviceInfoGetTargetName, path.Target.Adapter, path.Target.Id) };
+            if (DisplayConfigGetDeviceInfo(ref target) == 0 && !string.IsNullOrWhiteSpace(target.Name))
+                return FormatDisplayLabel(deviceName, target.Name);
         }
         return FormatDisplayLabel(deviceName, null);
     }
