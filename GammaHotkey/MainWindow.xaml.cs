@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security;
 using System.Windows;
 using System.Windows.Controls;
@@ -300,7 +299,7 @@ public partial class MainWindow : Window
         }
         else if (message == NativeMethods.WmDisplayChange) ScheduleDisplayRefresh();
         else if (message == NativeMethods.WmInputLangChange) { UpdateAltGrWarning(); UpdateView(); }
-        else if (message == 0x001A && settings.Theme == "System" && !exiting) Dispatcher.BeginInvoke(ApplyTheme);
+        else if (message == NativeMethods.WmSettingChange &&settings.Theme == "System" && !exiting) Dispatcher.BeginInvoke(ApplyTheme);
         return 0;
     }
 
@@ -392,12 +391,7 @@ public partial class MainWindow : Window
         string[] keys = ["Background", "Surface", "Field", "Text", "Muted", "Accent", "Outline", "Warning", "Hover", "AccentHover"];
         for (int i = 0; i < keys.Length; i++) Resources[keys[i]] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colors[i])!);
         ShowTab(SettingsPage.Visibility == Visibility.Visible);
-        if (hwnd != 0)
-        {
-            int darkTitle = dark ? 1 : 0;
-            if (DwmSetWindowAttribute(hwnd, 20, ref darkTitle, sizeof(int)) != 0)
-                _ = DwmSetWindowAttribute(hwnd, 19, ref darkTitle, sizeof(int));
-        }
+        if (hwnd != 0) NativeMethods.SetDarkTitleBar(hwnd, dark);
         UpdateView();
     }
 
@@ -406,9 +400,6 @@ public partial class MainWindow : Window
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
         return key?.GetValue("AppsUseLightTheme") is int value && value == 0;
     }
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int valueSize);
 
     private void ThemeSelect_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -500,13 +491,8 @@ public partial class MainWindow : Window
         dialog.Resources.MergedDictionaries.Add(Resources);
         var panel = new StackPanel { Margin = new Thickness(18) };
         dialog.Content = panel;
-        dialog.SourceInitialized += (_, _) =>
-        {
-            int darkTitle = settings.Theme == "Dark" || settings.Theme == "System" && SystemDarkTheme() ? 1 : 0;
-            nint handle = new WindowInteropHelper(dialog).Handle;
-            if (DwmSetWindowAttribute(handle, 20, ref darkTitle, sizeof(int)) != 0)
-                _ = DwmSetWindowAttribute(handle, 19, ref darkTitle, sizeof(int));
-        };
+        dialog.SourceInitialized += (_, _) => NativeMethods.SetDarkTitleBar(new WindowInteropHelper(dialog).Handle,
+            settings.Theme == "Dark" || settings.Theme == "System" && SystemDarkTheme());
         return dialog;
     }
 

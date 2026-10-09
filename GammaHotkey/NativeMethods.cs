@@ -7,7 +7,14 @@ internal static class NativeMethods
     internal const int WmHotkey = 0x0312;
     internal const int WmDisplayChange = 0x007E;
     internal const int WmInputLangChange = 0x0051;
+    internal const int WmSettingChange = 0x001A;
     internal const uint ModNoRepeat = 0x4000;
+    private const uint QdcOnlyActivePaths = 2;
+    private const int ErrorInsufficientBuffer = 122;
+    private const uint DisplayConfigDeviceInfoGetSourceName = 1;
+    private const uint DisplayConfigDeviceInfoGetTargetName = 2;
+    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int DwmwaUseImmersiveDarkModeBefore20H1 = 19;
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     private struct PathSource
@@ -73,21 +80,20 @@ internal static class NativeMethods
 
     internal static string DisplayLabel(string deviceName)
     {
-        const uint activePaths = 2;
         for (int attempt = 0; attempt < 2; attempt++)
         {
-            if (GetDisplayConfigBufferSizes(activePaths, out uint pathCount, out uint modeCount) != 0) break;
+            if (GetDisplayConfigBufferSizes(QdcOnlyActivePaths, out uint pathCount, out uint modeCount) != 0) break;
             var paths = new DisplayPath[pathCount];
             var modes = new byte[Math.Max(1, checked((int)modeCount * 64))];
             var handle = GCHandle.Alloc(modes, GCHandleType.Pinned);
             int result;
             try
             {
-                result = QueryDisplayConfig(activePaths, ref pathCount, paths, ref modeCount,
+                result = QueryDisplayConfig(QdcOnlyActivePaths, ref pathCount, paths, ref modeCount,
                 handle.AddrOfPinnedObject(), 0);
             }
             finally { handle.Free(); }
-            if (result == 122) continue;
+            if (result == ErrorInsufficientBuffer) continue;
             if (result != 0) break;
             foreach (var path in paths.Take((int)pathCount))
             {
@@ -95,7 +101,7 @@ internal static class NativeMethods
                 {
                     Header = new DeviceInfoHeader
                     {
-                        Type = 1,
+                        Type = DisplayConfigDeviceInfoGetSourceName,
                         Size = (uint)Marshal.SizeOf<SourceName>(),
                         Adapter = path.Source.Adapter,
                         Id = path.Source.Id
@@ -107,7 +113,7 @@ internal static class NativeMethods
                 {
                     Header = new DeviceInfoHeader
                     {
-                        Type = 2,
+                        Type = DisplayConfigDeviceInfoGetTargetName,
                         Size = (uint)Marshal.SizeOf<TargetName>(),
                         Adapter = path.Target.Adapter,
                         Id = path.Target.Id
@@ -147,6 +153,17 @@ internal static class NativeMethods
     [DllImport("gdi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetDeviceGammaRamp(nint dc, nint ramp);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int valueSize);
+
+    // Builds before Windows 10 20H1 only know the older attribute id.
+    internal static void SetDarkTitleBar(nint hwnd, bool dark)
+    {
+        int value = dark ? 1 : 0;
+        if (DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref value, sizeof(int)) != 0)
+            _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeBefore20H1, ref value, sizeof(int));
+    }
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
