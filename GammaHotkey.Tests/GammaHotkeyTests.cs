@@ -454,6 +454,22 @@ public class GammaHotkeyTests
     }
 
     [Fact]
+    public void DisplayLabelIsResolvedOncePerCapture()
+    {
+        var original = IdentityRamp();
+        int lookups = 0;
+        var controller = new GammaController(() => ["A"], _ => original, (_, _) => true,
+            name => { lookups++; return "Label " + name; });
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        controller.CheckForOverrides();
+        Assert.Equal("Label A", controller.Displays.Single().Label);
+        Assert.Equal(1, lookups);
+        controller.HandleDisplayChange();
+        Assert.Equal(2, lookups);
+    }
+
+    [Fact]
     public void DisplayChangeRestoresAndRecapturesDisplays()
     {
         var original = IdentityRamp();

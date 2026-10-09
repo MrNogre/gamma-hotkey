@@ -333,7 +333,7 @@ public partial class MainWindow : Window
         foreach (var display in controller.Displays)
         {
             bool warning = display.IsWarning;
-            string name = NativeMethods.DisplayLabel(display.DeviceName);
+            string name = display.Label;
             var row = new Grid { Margin = new Thickness(0, 5, 0, 5), MinHeight = 22 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });

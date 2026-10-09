@@ -9,6 +9,7 @@ internal enum DisplayStatusKind
 internal sealed class DisplayState
 {
     public required string DeviceName { get; init; }
+    public string Label { get; init; } = "";
     public GammaRamp? BaselineRamp { get; set; }
     public GammaRamp? LastAppliedRamp { get; set; }
     public GammaProfile? AppliedProfile { get; set; }
@@ -50,6 +51,7 @@ internal sealed class GammaController
     private readonly Func<IEnumerable<string>> screenNames;
     private readonly Func<string, GammaRamp?> read;
     private readonly Func<string, GammaRamp, bool> write;
+    private readonly Func<string, string> label;
     public IReadOnlyCollection<DisplayState> Displays => displays.Values;
     public bool HasAppliedRamp => displays.Values.Any(d => d.LastAppliedRamp is not null);
     public bool HasOverride => displays.Values.Any(d => d.Overridden);
@@ -57,9 +59,10 @@ internal sealed class GammaController
     public event Action? Changed;
 
     public GammaController(Func<IEnumerable<string>>? screenNames = null,
-        Func<string, GammaRamp?>? read = null, Func<string, GammaRamp, bool>? write = null)
+        Func<string, GammaRamp?>? read = null, Func<string, GammaRamp, bool>? write = null, Func<string, string>? label = null)
     {
         this.screenNames = screenNames ?? (() => Screen.AllScreens.Select(s => s.DeviceName));
+        this.label = label ?? NativeMethods.DisplayLabel;
         read ??= name => OnDc(name, dc => NativeMethods.Read(dc, out var ramp) ? ramp : null);
         write ??= (name, ramp) => OnDc(name, dc => NativeMethods.Write(dc, ramp));
         // Native errors count as failed reads/writes, so Restore never throws.
@@ -80,12 +83,16 @@ internal sealed class GammaController
         if (HasAppliedRamp || HasFailedRestore) return;
         displays.Clear();
         foreach (string name in screenNames().Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var state = new DisplayState { DeviceName = name };
-            displays.Add(name, state);
-            Capture(state);
-        }
+            Add(name);
         Changed?.Invoke();
+    }
+
+    // Label is resolved once here; the UI reads it on every refresh.
+    private void Add(string name)
+    {
+        var state = new DisplayState { DeviceName = name, Label = label(name) };
+        displays.Add(name, state);
+        Capture(state);
     }
 
     private void Capture(DisplayState display)
@@ -220,20 +227,12 @@ internal sealed class GammaController
         {
             displays.Clear();
             foreach (string name in present)
-            {
-                var state = new DisplayState { DeviceName = name };
-                displays.Add(name, state);
-                Capture(state);
-            }
+                Add(name);
         }
         else
         {
             foreach (string name in present.Where(n => !displays.ContainsKey(n)))
-            {
-                var state = new DisplayState { DeviceName = name };
-                displays.Add(name, state);
-                Capture(state);
-            }
+                Add(name);
         }
         Changed?.Invoke();
     }
