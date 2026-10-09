@@ -490,6 +490,40 @@ public class GammaHotkeyTests
     }
 
     [Fact]
+    public void UnreadableOrUnsafeRampsAreNeverWritten()
+    {
+        var unsafeRamp = new GammaRamp(new ushort[GammaRamp.Length]);
+        var ramps = new Dictionary<string, GammaRamp?> { ["A"] = null, ["B"] = unsafeRamp };
+        int writes = 0;
+        var controller = new GammaController(() => ["A", "B"], name => ramps[name], (_, _) => { writes++; return true; });
+        controller.RefreshBaseline();
+        var a = controller.Displays.Single(d => d.DeviceName == "A");
+        var b = controller.Displays.Single(d => d.DeviceName == "B");
+        Assert.True(a.Kind == DisplayStatusKind.Failed && a.Detail == "gamma read unavailable");
+        Assert.True(b.Kind == DisplayStatusKind.Unsupported && b.BaselineRamp is null);
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        Assert.Equal(0, writes);
+        Assert.True(a.Kind == DisplayStatusKind.Failed && a.Detail == "current ramp unreadable" && !a.Overridden);
+        Assert.True(b.Kind == DisplayStatusKind.Failed && b.Detail == "external ramp unsafe; not reapplied" && b.Overridden);
+    }
+
+    [Fact]
+    public void SafeExternalRampBecomesTheNewBaseline()
+    {
+        var original = IdentityRamp();
+        var external = original.Bright(1.5);
+        GammaRamp current = original;
+        var controller = new GammaController(() => ["A"], _ => current, (_, target) => { current = target; return true; });
+        controller.RefreshBaseline();
+        current = external;
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        var display = controller.Displays.Single();
+        Assert.True(display.Confirmed && display.BaselineRamp!.Matches(external) && !external.Matches(original));
+        controller.Restore();
+        Assert.True(current.Matches(external) && display.Kind == DisplayStatusKind.BaselineRestored);
+    }
+
+    [Fact]
     public void SettingsRejectLongAndDuplicateProfileNames()
     {
         string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());
