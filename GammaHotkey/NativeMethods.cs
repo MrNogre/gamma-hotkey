@@ -13,6 +13,9 @@ internal static class NativeMethods
     private const int ErrorInsufficientBuffer = 122;
     private const uint DisplayConfigDeviceInfoGetSourceName = 1;
     private const uint DisplayConfigDeviceInfoGetTargetName = 2;
+    private const uint DisplayConfigDeviceInfoGetAdvancedColorInfo = 9;
+    private const uint DisplayConfigDeviceInfoGetAdvancedColorInfo2 = 15;
+    private const uint AdvancedColorModeHdr = 2;
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaUseImmersiveDarkModeBefore20H1 = 19;
 
@@ -65,6 +68,20 @@ internal static class NativeMethods
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string Path;
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct AdvancedColorInfo
+    {
+        public DeviceInfoHeader Header;
+        public uint Value, ColorEncoding, BitsPerColorChannel;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct AdvancedColorInfo2
+    {
+        public DeviceInfoHeader Header;
+        public uint Value, ColorEncoding, BitsPerColorChannel, ActiveColorMode;
+    }
+
     [DllImport("user32.dll")]
     private static extern int GetDisplayConfigBufferSizes(uint flags, out uint paths, out uint modes);
 
@@ -77,6 +94,12 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     private static extern int DisplayConfigGetDeviceInfo(ref TargetName name);
+
+    [DllImport("user32.dll")]
+    private static extern int DisplayConfigGetDeviceInfo(ref AdvancedColorInfo info);
+
+    [DllImport("user32.dll")]
+    private static extern int DisplayConfigGetDeviceInfo(ref AdvancedColorInfo2 info);
 
     // Active paths whose source is the given GDI device; clone mode yields several targets.
     private static List<DisplayPath> PathsFor(string deviceName)
@@ -120,6 +143,24 @@ internal static class NativeMethods
                 return FormatDisplayLabel(deviceName, target.Name);
         }
         return FormatDisplayLabel(deviceName, null);
+    }
+
+    // True when any target of the display runs HDR; query errors count as SDR.
+    internal static bool IsHdr(string deviceName)
+    {
+        foreach (var path in PathsFor(deviceName))
+        {
+            var info2 = new AdvancedColorInfo2 { Header = Header<AdvancedColorInfo2>(DisplayConfigDeviceInfoGetAdvancedColorInfo2, path.Target.Adapter, path.Target.Id) };
+            if (DisplayConfigGetDeviceInfo(ref info2) == 0)
+            {
+                if (info2.ActiveColorMode == AdvancedColorModeHdr) return true;
+                continue;
+            }
+            // Before Windows 11 24H2: advanced color enabled without enforced wide color means HDR.
+            var info = new AdvancedColorInfo { Header = Header<AdvancedColorInfo>(DisplayConfigDeviceInfoGetAdvancedColorInfo, path.Target.Adapter, path.Target.Id) };
+            if (DisplayConfigGetDeviceInfo(ref info) == 0 && (info.Value & 0b110) == 0b010) return true;
+        }
+        return false;
     }
 
     internal static string FormatDisplayLabel(string deviceName, string? description)

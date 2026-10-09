@@ -524,6 +524,79 @@ public class GammaHotkeyTests
     }
 
     [Fact]
+    public void HdrDisplayIsNeverReadOrWritten()
+    {
+        var original = IdentityRamp();
+        var ramps = new Dictionary<string, GammaRamp> { ["A"] = original, ["B"] = original };
+        var touched = new List<string>();
+        var controller = new GammaController(() => ["A", "B"], name => { touched.Add(name); return ramps[name]; },
+            (name, ramp) => { touched.Add(name); ramps[name] = ramp; return true; }, isHdr: name => name == "B");
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        controller.CheckForOverrides();
+        controller.Restore();
+        var b = controller.Displays.Single(d => d.DeviceName == "B");
+        Assert.DoesNotContain("B", touched);
+        Assert.True(b.Kind == DisplayStatusKind.Skipped && b.IsWarning);
+        Assert.Equal("Skipped: HDR active", b.Status);
+        Assert.True(ramps["A"].Matches(original) && touched.Contains("A"));
+    }
+
+    [Fact]
+    public void HdrTurnedOnRestoresOwnedRampBeforeSkipping()
+    {
+        var original = IdentityRamp();
+        GammaRamp current = original;
+        bool hdr = false;
+        int writes = 0;
+        var controller = new GammaController(() => ["A"], _ => current, (_, target) =>
+        { writes++; current = target; return true; }, isHdr: _ => hdr);
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        hdr = true;
+        controller.CheckForOverrides();
+        var display = controller.Displays.Single();
+        Assert.True(writes == 2 && current.Matches(original) && !controller.HasAppliedRamp);
+        Assert.Equal(DisplayStatusKind.Skipped, display.Kind);
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        controller.Restore();
+        Assert.Equal(2, writes);
+        hdr = false;
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        Assert.True(display.Confirmed && display.BaselineRamp!.Matches(original));
+    }
+
+    [Fact]
+    public void FailedRestoreUnderHdrStaysVisible()
+    {
+        GammaRamp current = IdentityRamp();
+        bool hdr = false;
+        var controller = new GammaController(() => ["A"], _ => current, (_, target) =>
+        { if (hdr) return false; current = target; return true; }, isHdr: _ => hdr);
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        hdr = true;
+        controller.HandleDisplayChange();
+        var display = controller.Displays.Single();
+        Assert.True(controller.HasFailedRestore && display.Kind == DisplayStatusKind.RestoreFailed);
+        hdr = false;
+        controller.HandleDisplayChange();
+        Assert.True(display.Kind == DisplayStatusKind.RestoreFailed && display.BaselineRamp!.Matches(IdentityRamp()));
+    }
+
+    [Fact]
+    public void HdrQueryFailureTreatsDisplayAsSdr()
+    {
+        var original = IdentityRamp();
+        GammaRamp current = original;
+        var controller = new GammaController(() => ["A"], _ => current, (_, target) => { current = target; return true; },
+            isHdr: _ => throw new InvalidOperationException());
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        Assert.True(controller.Displays.Single().Confirmed);
+    }
+
+    [Fact]
     public void SettingsRejectLongAndDuplicateProfileNames()
     {
         string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());

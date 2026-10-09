@@ -12,9 +12,10 @@ internal sealed class DisplayState
     public string Detail { get; private set; } = "";
     public bool Overridden { get; set; }
     public bool RestoreFailed { get; set; }
+    public bool Hdr { get; set; }
     public bool Confirmed => LastAppliedRamp is not null && !Overridden && !RestoreFailed && Kind == DisplayStatusKind.Confirmed;
     public bool IsWarning => Overridden || RestoreFailed || Kind is DisplayStatusKind.Failed or DisplayStatusKind.Unsupported or
-        DisplayStatusKind.NotConfirmed or DisplayStatusKind.RestoreSkipped;
+        DisplayStatusKind.NotConfirmed or DisplayStatusKind.RestoreSkipped or DisplayStatusKind.Skipped;
 
     // UI and log text, e.g. "Failed: gamma write rejected".
     public string Status

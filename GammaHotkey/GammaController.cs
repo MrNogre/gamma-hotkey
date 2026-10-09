@@ -7,6 +7,7 @@ internal sealed class GammaController
     private readonly Func<string, GammaRamp?> read;
     private readonly Func<string, GammaRamp, bool> write;
     private readonly Func<string, string> label;
+    private readonly Func<string, bool> isHdr;
     public IReadOnlyCollection<DisplayState> Displays => displays.Values;
     public bool HasAppliedRamp => displays.Values.Any(d => d.LastAppliedRamp is not null);
     public bool HasOverride => displays.Values.Any(d => d.Overridden);
@@ -14,15 +15,22 @@ internal sealed class GammaController
     public event Action? Changed;
 
     public GammaController(Func<IEnumerable<string>>? screenNames = null,
-        Func<string, GammaRamp?>? read = null, Func<string, GammaRamp, bool>? write = null, Func<string, string>? label = null)
+        Func<string, GammaRamp?>? read = null, Func<string, GammaRamp, bool>? write = null, Func<string, string>? label = null,
+        Func<string, bool>? isHdr = null)
     {
         this.screenNames = screenNames ?? (() => Screen.AllScreens.Select(s => s.DeviceName));
         this.label = label ?? NativeMethods.DisplayLabel;
+        isHdr ??= NativeMethods.IsHdr;
         read ??= name => OnDc(name, dc => NativeMethods.Read(dc, out var ramp) ? ramp : null);
         write ??= (name, ramp) => OnDc(name, dc => NativeMethods.Write(dc, ramp));
         // Native errors count as failed reads/writes, so Restore never throws.
         this.read = name => { try { return read(name); } catch (Exception) { return null; } };
         this.write = (name, ramp) => { try { return write(name, ramp); } catch (Exception) { return false; } };
+        this.isHdr = name =>
+        {
+            try { return isHdr(name); }
+            catch (Exception ex) { Log.Write($"{name}: HDR query failed, treated as SDR: {ex.Message}"); return false; }
+        };
     }
 
     private static T OnDc<T>(string name, Func<nint, T> operation)
@@ -47,7 +55,24 @@ internal sealed class GammaController
     {
         var state = new DisplayState { DeviceName = name, Label = label(name) };
         displays.Add(name, state);
-        Capture(state);
+        if (!SkipIfHdr(state)) Capture(state);
+    }
+
+    // HDR displays get no capture or profile; Windows keeps applying our ramp under HDR, so an owned one is restored first.
+    private bool SkipIfHdr(DisplayState display)
+    {
+        if (isHdr(display.DeviceName))
+        {
+            bool owned = display.LastAppliedRamp is not null && !display.RestoreFailed;
+            RestoreDisplay(display);
+            display.Hdr = true;
+            if (!display.RestoreFailed && !(owned && display.Kind == DisplayStatusKind.RestoreSkipped))
+                display.SetStatus(DisplayStatusKind.Skipped, "HDR active");
+            return true;
+        }
+        // A failed restore keeps its original baseline and diagnostic.
+        if (display.Hdr) { display.Hdr = false; if (!display.RestoreFailed) Capture(display); }
+        return false;
     }
 
     private void Capture(DisplayState display)
@@ -67,7 +92,7 @@ internal sealed class GammaController
     {
         foreach (var display in displays.Values)
         {
-            if (display.RestoreFailed) continue;
+            if (display.RestoreFailed || SkipIfHdr(display)) continue;
             var current = read(display.DeviceName);
             if (current is null)
             {
@@ -124,6 +149,7 @@ internal sealed class GammaController
         foreach (var display in displays.Values)
         {
             if (display.LastAppliedRamp is null || display.Overridden || display.RestoreFailed) continue;
+            if (SkipIfHdr(display)) { changed = true; continue; }
             var current = read(display.DeviceName);
             if (current is not null && current.Matches(display.LastAppliedRamp)) continue;
             display.Overridden = true;
@@ -137,36 +163,40 @@ internal sealed class GammaController
     public void Restore()
     {
         foreach (var display in displays.Values)
-        {
-            if (display.LastAppliedRamp is null || display.BaselineRamp is null || display.RestoreFailed) continue;
-            var current = read(display.DeviceName);
-            if (current is null)
-            {
-                display.RestoreFailed = true;
-                display.SetStatus(DisplayStatusKind.RestoreFailed, "current ramp unreadable");
-                continue;
-            }
-            if (!current.Matches(display.LastAppliedRamp))
-            {
-                display.LastAppliedRamp = null;
-                display.Overridden = false;
-                display.SetStatus(DisplayStatusKind.RestoreSkipped, "external ramp change");
-                continue;
-            }
-            if (!write(display.DeviceName, display.BaselineRamp) ||
-                read(display.DeviceName) is not { } restored || !restored.Matches(display.BaselineRamp))
-            {
-                display.RestoreFailed = true;
-                display.SetStatus(DisplayStatusKind.RestoreFailed, "write or read-back mismatch");
-                continue;
-            }
-            display.LastAppliedRamp = null;
-            display.AppliedProfile = null;
-            display.Overridden = false;
-            display.RestoreFailed = false;
-            display.SetStatus(DisplayStatusKind.BaselineRestored);
-        }
+            RestoreDisplay(display);
         Changed?.Invoke();
+    }
+
+    // Restores only a ramp the app still owns, confirmed by read-back.
+    private void RestoreDisplay(DisplayState display)
+    {
+        if (display.LastAppliedRamp is not { } applied || display.BaselineRamp is not { } baseline || display.RestoreFailed) return;
+        var current = read(display.DeviceName);
+        if (current is null)
+        {
+            display.RestoreFailed = true;
+            display.SetStatus(DisplayStatusKind.RestoreFailed, "current ramp unreadable");
+            return;
+        }
+        if (!current.Matches(applied))
+        {
+            display.LastAppliedRamp = null;
+            display.Overridden = false;
+            display.SetStatus(DisplayStatusKind.RestoreSkipped, "external ramp change");
+            return;
+        }
+        if (!write(display.DeviceName, baseline) ||
+            read(display.DeviceName) is not { } restored || !restored.Matches(baseline))
+        {
+            display.RestoreFailed = true;
+            display.SetStatus(DisplayStatusKind.RestoreFailed, "write or read-back mismatch");
+            return;
+        }
+        display.LastAppliedRamp = null;
+        display.AppliedProfile = null;
+        display.Overridden = false;
+        display.RestoreFailed = false;
+        display.SetStatus(DisplayStatusKind.BaselineRestored);
     }
 
     public void HandleDisplayChange()
@@ -186,6 +216,8 @@ internal sealed class GammaController
         }
         else
         {
+            foreach (var display in displays.Values.Where(d => present.Contains(d.DeviceName)))
+                SkipIfHdr(display);
             foreach (string name in present.Where(n => !displays.ContainsKey(n)))
                 Add(name);
         }
