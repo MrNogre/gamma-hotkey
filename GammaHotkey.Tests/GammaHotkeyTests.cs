@@ -95,7 +95,7 @@ public class GammaHotkeyTests
         var first = new GammaProfile { Name = "First", Gamma = 1.5 };
         var second = new GammaProfile { Name = "Second", Gamma = 1.7 };
         controller.RefreshBaseline();
-        Assert.True(writes.Count == 0 && controller.Displays.All(d => !d.Confirmed && d.Status == "Baseline captured"));
+        Assert.True(writes.Count == 0 && controller.Displays.All(d => !d.Confirmed && d.Kind == DisplayStatusKind.BaselineCaptured && !d.IsWarning));
         first.Gamma = 1.6; // Selection and edits do not call the controller.
         Assert.True(writes.Count == 0);
         failB = true;
@@ -428,6 +428,7 @@ public class GammaHotkeyTests
         var display = controller.Displays.Single();
         Assert.False(display.Confirmed);
         Assert.True(display.Overridden);
+        Assert.True(display.Kind == DisplayStatusKind.NotConfirmed && display.IsWarning);
         Assert.Equal("Not confirmed: read-back differs", display.Status);
         Assert.False(controller.HasAppliedRamp);
     }
@@ -446,10 +447,10 @@ public class GammaHotkeyTests
         controller.CheckForOverrides();
         var display = controller.Displays.Single();
         Assert.False(display.Confirmed);
-        Assert.Equal("Overridden: baseline restored externally", display.Status);
+        Assert.True(display.Kind == DisplayStatusKind.Overridden && display.Detail == "baseline restored externally");
         controller.Restore();
         Assert.Equal(1, writes);
-        Assert.Equal("Restore skipped: external ramp change", display.Status);
+        Assert.True(display.Kind == DisplayStatusKind.RestoreSkipped && display.IsWarning);
     }
 
     [Fact]
@@ -468,7 +469,7 @@ public class GammaHotkeyTests
         controller.HandleDisplayChange();
         Assert.True(writes.SequenceEqual(["A"]) && ramps["A"].Matches(original));
         Assert.True(controller.Displays.Select(d => d.DeviceName).Order().SequenceEqual(["A", "C"]));
-        Assert.All(controller.Displays, d => Assert.Equal("Baseline captured", d.Status));
+        Assert.All(controller.Displays, d => Assert.Equal(DisplayStatusKind.BaselineCaptured, d.Kind));
         Assert.False(controller.HasAppliedRamp);
     }
 

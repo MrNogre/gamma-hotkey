@@ -332,11 +332,7 @@ public partial class MainWindow : Window
         if (controller.Displays.Count == 0) DisplayList.Children.Add(new TextBlock { Text = "No active display found." });
         foreach (var display in controller.Displays)
         {
-            bool warning = display.Overridden || display.RestoreFailed ||
-                display.Status.StartsWith("Failed", StringComparison.Ordinal) ||
-                display.Status.StartsWith("Unsupported", StringComparison.Ordinal) ||
-                display.Status.StartsWith("Not confirmed", StringComparison.Ordinal) ||
-                display.Status.StartsWith("Restore skipped", StringComparison.Ordinal);
+            bool warning = display.IsWarning;
             string name = NativeMethods.DisplayLabel(display.DeviceName);
             var row = new Grid { Margin = new Thickness(0, 5, 0, 5), MinHeight = 22 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });

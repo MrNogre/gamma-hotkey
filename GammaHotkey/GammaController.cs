@@ -1,5 +1,11 @@
 namespace GammaHotkey;
 
+internal enum DisplayStatusKind
+{
+    NotRead, BaselineCaptured, Confirmed, Failed, Unsupported, NotConfirmed,
+    Overridden, RestoreSkipped, RestoreFailed, BaselineRestored, Removed
+}
+
 internal sealed class DisplayState
 {
     public required string DeviceName { get; init; }
@@ -7,11 +13,35 @@ internal sealed class DisplayState
     public GammaRamp? LastAppliedRamp { get; set; }
     public GammaProfile? AppliedProfile { get; set; }
     public double AppliedGamma { get; set; }
-    public string Status { get; set; } = "Not read";
+    public DisplayStatusKind Kind { get; private set; }
+    public string Detail { get; private set; } = "";
     public bool Overridden { get; set; }
     public bool RestoreFailed { get; set; }
-    public bool Confirmed => LastAppliedRamp is not null && !Overridden && !RestoreFailed &&
-        Status.StartsWith("Profile confirmed", StringComparison.Ordinal);
+    public bool Confirmed => LastAppliedRamp is not null && !Overridden && !RestoreFailed && Kind == DisplayStatusKind.Confirmed;
+    public bool IsWarning => Overridden || RestoreFailed || Kind is DisplayStatusKind.Failed or DisplayStatusKind.Unsupported or
+        DisplayStatusKind.NotConfirmed or DisplayStatusKind.RestoreSkipped;
+
+    // UI and log text, e.g. "Failed: gamma write rejected".
+    public string Status
+    {
+        get
+        {
+            string label = Kind switch
+            {
+                DisplayStatusKind.NotRead => "Not read",
+                DisplayStatusKind.BaselineCaptured => "Baseline captured",
+                DisplayStatusKind.Confirmed => "Profile confirmed",
+                DisplayStatusKind.NotConfirmed => "Not confirmed",
+                DisplayStatusKind.RestoreSkipped => "Restore skipped",
+                DisplayStatusKind.RestoreFailed => "Restore failed",
+                DisplayStatusKind.BaselineRestored => "Baseline restored",
+                _ => Kind.ToString()
+            };
+            return Detail == "" ? label : $"{label}: {Detail}";
+        }
+    }
+
+    public void SetStatus(DisplayStatusKind kind, string detail = "") => (Kind, Detail) = (kind, detail);
 }
 
 internal sealed class GammaController
@@ -63,11 +93,12 @@ internal sealed class GammaController
         var ramp = read(display.DeviceName);
         if (ramp is null || !ramp.IsSafe())
         {
-            display.Status = ramp is null ? "Failed: gamma read unavailable" : "Unsupported: unsafe or non-monotonic ramp";
+            if (ramp is null) display.SetStatus(DisplayStatusKind.Failed, "gamma read unavailable");
+            else display.SetStatus(DisplayStatusKind.Unsupported, "unsafe or non-monotonic ramp");
             return;
         }
         display.BaselineRamp = ramp;
-        display.Status = "Baseline captured";
+        display.SetStatus(DisplayStatusKind.BaselineCaptured);
     }
 
     public void ApplyProfile(GammaProfile profile)
@@ -79,7 +110,7 @@ internal sealed class GammaController
             if (current is null)
             {
                 display.Overridden = display.LastAppliedRamp is not null;
-                display.Status = "Failed: current ramp unreadable";
+                display.SetStatus(DisplayStatusKind.Failed, "current ramp unreadable");
                 continue;
             }
             bool owned = display.LastAppliedRamp is not null && current.Matches(display.LastAppliedRamp);
@@ -90,37 +121,37 @@ internal sealed class GammaController
                 if (!current.IsSafe())
                 {
                     display.Overridden = true;
-                    display.Status = "Failed: external ramp unsafe; not reapplied";
+                    display.SetStatus(DisplayStatusKind.Failed, "external ramp unsafe; not reapplied");
                     continue;
                 }
                 display.BaselineRamp = current;
             }
             if (display.BaselineRamp is null)
             {
-                if (!current.IsSafe()) { display.Status = "Unsupported: unsafe or non-monotonic ramp"; continue; }
+                if (!current.IsSafe()) { display.SetStatus(DisplayStatusKind.Unsupported, "unsafe or non-monotonic ramp"); continue; }
                 display.BaselineRamp = current;
             }
             GammaRamp target;
             try { target = display.BaselineRamp.Bright(profile.Gamma); }
-            catch (ArgumentException) { display.Status = "Failed: invalid profile ramp"; continue; }
+            catch (ArgumentException) { display.SetStatus(DisplayStatusKind.Failed, "invalid profile ramp"); continue; }
             if (!write(display.DeviceName, target))
             {
                 display.Overridden = true;
-                display.Status = "Failed: gamma write rejected";
+                display.SetStatus(DisplayStatusKind.Failed, "gamma write rejected");
                 continue;
             }
             var observed = read(display.DeviceName);
             if (observed is null || !observed.Matches(target))
             {
                 display.Overridden = true;
-                display.Status = observed is null ? "Not confirmed: read-back failed" : "Not confirmed: read-back differs";
+                display.SetStatus(DisplayStatusKind.NotConfirmed, observed is null ? "read-back failed" : "read-back differs");
                 continue;
             }
             display.LastAppliedRamp = observed;
             display.AppliedProfile = profile;
             display.AppliedGamma = profile.Gamma;
             display.Overridden = false;
-            display.Status = "Profile confirmed: " + profile.Name;
+            display.SetStatus(DisplayStatusKind.Confirmed, profile.Name);
         }
         Changed?.Invoke();
     }
@@ -134,8 +165,8 @@ internal sealed class GammaController
             var current = read(display.DeviceName);
             if (current is not null && current.Matches(display.LastAppliedRamp)) continue;
             display.Overridden = true;
-            display.Status = current is null ? "Overridden: current ramp unreadable" :
-                current.Matches(display.BaselineRamp!) ? "Overridden: baseline restored externally" : "Overridden: external ramp change";
+            display.SetStatus(DisplayStatusKind.Overridden, current is null ? "current ramp unreadable" :
+                current.Matches(display.BaselineRamp!) ? "baseline restored externally" : "external ramp change");
             changed = true;
         }
         if (changed) Changed?.Invoke();
@@ -150,28 +181,28 @@ internal sealed class GammaController
             if (current is null)
             {
                 display.RestoreFailed = true;
-                display.Status = "Restore failed: current ramp unreadable";
+                display.SetStatus(DisplayStatusKind.RestoreFailed, "current ramp unreadable");
                 continue;
             }
             if (!current.Matches(display.LastAppliedRamp))
             {
                 display.LastAppliedRamp = null;
                 display.Overridden = false;
-                display.Status = "Restore skipped: external ramp change";
+                display.SetStatus(DisplayStatusKind.RestoreSkipped, "external ramp change");
                 continue;
             }
             if (!write(display.DeviceName, display.BaselineRamp) ||
                 read(display.DeviceName) is not { } restored || !restored.Matches(display.BaselineRamp))
             {
                 display.RestoreFailed = true;
-                display.Status = "Restore failed: write or read-back mismatch";
+                display.SetStatus(DisplayStatusKind.RestoreFailed, "write or read-back mismatch");
                 continue;
             }
             display.LastAppliedRamp = null;
             display.AppliedProfile = null;
             display.Overridden = false;
             display.RestoreFailed = false;
-            display.Status = "Baseline restored";
+            display.SetStatus(DisplayStatusKind.BaselineRestored);
         }
         Changed?.Invoke();
     }
@@ -182,7 +213,7 @@ internal sealed class GammaController
         foreach (var display in displays.Values.Where(d => !present.Contains(d.DeviceName)))
         {
             display.LastAppliedRamp = null;
-            display.Status = "Removed";
+            display.SetStatus(DisplayStatusKind.Removed);
         }
         Restore();
         if (!HasFailedRestore)
