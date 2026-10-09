@@ -24,6 +24,9 @@ namespace GammaHotkey;
 public partial class MainWindow : Window
 {
     private const int ProfileHotkeyId = 0x4800;
+    private const int PanicHotkeyId = 0x47FF;
+    // Ctrl+Alt+Shift+Backspace; Backspace types no character, so no AltGr conflict.
+    private const uint PanicModifiers = 0x7, PanicKey = 0x08;
     private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupValue = "GammaHotkey";
     private readonly GammaController controller = new();
@@ -37,6 +40,7 @@ public partial class MainWindow : Window
     private nint hwnd;
     private string? settingsWarning;
     private string? profileHotkeyWarning;
+    private string? panicHotkeyWarning;
     private string? altGrWarning;
     private string? shortcutFeedback;
     private bool loading;
@@ -74,6 +78,7 @@ public partial class MainWindow : Window
 
         var menu = new WF.ContextMenuStrip();
         menu.Items.Add("Show", null, (_, _) => Dispatcher.Invoke(ShowWindow));
+        menu.Items.Add("Restore now", null, (_, _) => Dispatcher.Invoke(PanicRestore));
         menu.Items.Add(new WF.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(ExitApp));
 #if DEBUG
@@ -100,6 +105,8 @@ public partial class MainWindow : Window
         {
             hwnd = new WindowInteropHelper(this).Handle;
             HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+            if (!NativeMethods.RegisterHotKey(hwnd, PanicHotkeyId, NativeMethods.ModNoRepeat | PanicModifiers, PanicKey))
+                panicHotkeyWarning = "Panic hotkey unavailable: Ctrl+Alt+Shift+Backspace.";
             RegisterProfileHotkeys();
             ApplyTheme();
         };
@@ -297,6 +304,7 @@ public partial class MainWindow : Window
             RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile]));
             handled = true;
         }
+        else if (message == NativeMethods.WmHotkey && (int)wParam == PanicHotkeyId) { PanicRestore(); handled = true; }
         else if (message == NativeMethods.WmDisplayChange) ScheduleDisplayRefresh();
         else if (message == NativeMethods.WmInputLangChange) { UpdateAltGrWarning(); UpdateView(); }
         else if (message == NativeMethods.WmSettingChange && settings.Theme == "System" && !exiting) Dispatcher.BeginInvoke(ApplyTheme);
@@ -358,7 +366,7 @@ public partial class MainWindow : Window
             row.Children.Add(status);
             DisplayList.Children.Add(row);
         }
-        Note.Text = string.Join("  ·  ", new[] { shortcutFeedback, settingsWarning, profileHotkeyWarning, altGrWarning }.Where(w => w is not null));
+        Note.Text = string.Join("  ·  ", new[] { shortcutFeedback, settingsWarning, panicHotkeyWarning, profileHotkeyWarning, altGrWarning }.Where(w => w is not null));
         Note.SetResourceReference(TextBlock.ForegroundProperty, Note.Text == "" ? "Muted" : "Warning");
         Note.ToolTip = Note.Text == "" ? null : Note.Text;
         if (Note.Text == "") Note.Text = "Close hides to tray";
@@ -602,6 +610,14 @@ public partial class MainWindow : Window
             catch (Exception) { }
     }
 
+    // Bypasses the busy flag so it works even mid-action; restore stays ownership-aware.
+    private void PanicRestore()
+    {
+        Log.Write("Panic restore");
+        EmergencyRestore();
+        UpdateView();
+    }
+
     internal void CrashExit()
     {
         EmergencyRestore();
@@ -623,6 +639,7 @@ public partial class MainWindow : Window
         controller.Restore();
         foreach (int id in registeredProfiles) NativeMethods.UnregisterHotKey(hwnd, id);
         registeredProfiles.Clear();
+        NativeMethods.UnregisterHotKey(hwnd, PanicHotkeyId);
         tray.Visible = false; tray.Dispose();
         if (controller.HasFailedRestore)
             MessageBox.Show("A display ramp could not be restored. Review Windows display settings or restart if needed.",
