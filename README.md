@@ -43,8 +43,9 @@ Closing the window keeps the app in the tray. Choose **Exit** to restore the ori
 
 ## Safety and recovery
 
-**Do not use with HDR enabled.** Gamma ramps are meant for SDR output; with HDR the result is undefined. Extreme values can make the screen hard to read, so test cautiously and keep Windows Display Settings at hand.
+Gamma ramps are meant for SDR output. Displays with HDR turned on are skipped and show `Skipped: HDR active`; a profile still applied when HDR is turned on is restored first, because Windows keeps applying the ramp under HDR. Extreme values can make the screen hard to read, so test cautiously and keep Windows Display Settings at hand.
 
+- **Ctrl+Alt+Shift+Backspace** or the tray menu's **Restore now** restores the original ramp of every display the app still controls.
 - On **Exit**, on an unhandled error and at sign-out or shutdown, the app restores the original ramp of every display it still controls.
 - When a display is connected, removed or the PC resumes from sleep, the app restores the original ramps and captures them again; apply the profile again afterwards.
 - If the screen stays unusable, restart Windows to reset the gamma ramp; signing out usually works too.
