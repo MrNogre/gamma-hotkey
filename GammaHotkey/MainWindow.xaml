@@ -1,7 +1,7 @@
 <Window x:Class="GammaHotkey.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Gamma Hotkey" Width="800" Height="680" ResizeMode="CanMinimize"
+        Title="Gamma Hotkey" Width="800" Height="780" ResizeMode="CanMinimize"
         Background="{DynamicResource Background}" Foreground="{DynamicResource Text}"
         FontFamily="Segoe UI" FontSize="14" WindowStartupLocation="CenterScreen">
     <Window.Resources>
