@@ -35,11 +35,11 @@ gh attestation verify gamma-hotkey-vX.Y.Z-win-x64.zip --repo MrNogre/gamma-hotke
 
 ## Usage
 
-Create a profile, set its gamma, and select **Apply profile**. Choosing a profile in the list only selects it for editing; **Apply profile** or the profile's hotkey applies it. Values above 1.00 brighten dark and mid tones, values below 1.00 darken them. While a profile is active, dragging its slider previews the change live on the displays it runs on.
+Create a profile and set its gamma. Choosing a profile in the list, or pressing its hotkey, applies it at once; a gamma typed into the box is applied when you press Enter. The first entry, **None (baseline)**, restores the original ramps; the app starts on it, and profile editing is disabled while it is selected. Values above 1.00 brighten dark and mid tones, values below 1.00 darken them. While a profile is active, dragging its slider previews the change live on the displays it runs on.
 
 Displays: each profile lists the connected displays with a switch. New profiles are on for every display. Turning a switch on or off applies the profile at once; displays switched off go back to their original gamma. Monitors are remembered by their hardware id, so a saved monitor that is unplugged shows as `(not connected)`; plugging it into a different port may need it switched on again.
 
-Hotkeys: click the shortcut box and press the combination. F1–F12 work alone or with Ctrl, Alt and Shift; letters and top-row digits need Ctrl or Alt. The numpad and the Windows key are not supported. Delete clears the shortcut, Escape keeps the current one. The app warns when a Ctrl+Alt shortcut would block an AltGr character on your keyboard layout.
+Hotkeys: click the shortcut box and press the combination. F1–F12 work alone or with Ctrl, Alt and Shift; letters and top-row digits need Ctrl or Alt. The numpad and the Windows key are not supported. Delete clears the shortcut, Escape keeps the current one. **None (baseline)** can have a hotkey too. The app warns when a Ctrl+Alt shortcut would block an AltGr character on your keyboard layout.
 
 Closing the window keeps the app in the tray. Choose **Exit** to restore the original display ramp.
 
@@ -47,9 +47,9 @@ Closing the window keeps the app in the tray. Choose **Exit** to restore the ori
 
 Gamma ramps are meant for SDR output. Displays with HDR turned on are skipped and show `Skipped: HDR active`; a profile still applied when HDR is turned on is restored first, because Windows keeps applying the ramp under HDR. Extreme values can make the screen hard to read, so test cautiously and keep Windows Display Settings at hand.
 
-- **Ctrl+Alt+Shift+Backspace** or the tray menu's **Restore now** restores the original ramp of every display the app still controls.
+- **Ctrl+Alt+Shift+Backspace** or the tray menu's **Restore now** restores the original ramp of every display the app still controls and selects **None (baseline)**.
 - On **Exit**, on an unhandled error and at sign-out or shutdown, the app restores the original ramp of every display it still controls.
-- When a display is connected, removed or the PC resumes from sleep, the app restores the original ramps and captures them again; apply the profile again afterwards.
+- When a display is connected, removed or the PC resumes from sleep, the app restores the original ramps, captures them again and selects **None (baseline)**; choose the profile again afterwards.
 - If the screen stays unusable, restart Windows to reset the gamma ramp; signing out usually works too.
 
 ## How it works
@@ -59,7 +59,7 @@ The app reads each display's current gamma ramp through GDI (`GetDeviceGammaRamp
 ## Troubleshooting
 
 - **"Failed: gamma write rejected"** — the driver or Windows refused the ramp. Windows limits how far a ramp may deviate from linear; an advanced, system-wide registry value (`GdiICMGammaRange` under `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ICM`) can raise that limit. Changing it needs administrator rights and is at your own risk; this app never changes it.
-- **"Overridden"** — another program changed the ramp: GPU control panel color settings (NVIDIA, AMD, Intel), Night Light, f.lux, calibration loaders or some games. Turn that program off and apply the profile again.
+- **"Overridden"** — another program changed the ramp: GPU control panel color settings (NVIDIA, AMD, Intel), Night Light, f.lux, calibration loaders or some games. Turn that program off, then press the profile's hotkey or choose **None (baseline)** and the profile again.
 - **"Hotkey unavailable"** — another program already uses that shortcut. Choose a different one.
 - **Errors** — the log files in `%LOCALAPPDATA%\GammaHotkey\logs` record errors and display status changes.
 
