@@ -13,7 +13,7 @@ It is most useful in games: when a scene is too dark to see, one key press raise
 
 ## Features
 
-- Gamma profiles from 0.50 to 4.00, applied to all connected displays.
+- Gamma profiles from 0.50 to 4.00, applied to all connected displays or only the ones you choose.
 - Global hotkeys per profile.
 - Per-display status, confirmed by reading the ramp back after every write.
 - Detects when another program changes the ramp and does not overwrite it.
@@ -36,6 +36,8 @@ gh attestation verify gamma-hotkey-vX.Y.Z-win-x64.zip --repo MrNogre/gamma-hotke
 ## Usage
 
 Create a profile, set its gamma, and select **Apply profile**. Choosing a profile in the list only selects it for editing; **Apply profile** or the profile's hotkey applies it. Values above 1.00 brighten dark and mid tones, values below 1.00 darken them. While a profile is active, dragging its slider previews the change live on the displays it runs on.
+
+Displays: each profile lists the connected displays with a switch. New profiles are on for every display. Turning a switch on or off applies the profile at once; displays switched off go back to their original gamma. Monitors are remembered by their hardware id, so a saved monitor that is unplugged shows as `(not connected)`; plugging it into a different port may need it switched on again.
 
 Hotkeys: click the shortcut box and press the combination. F1–F12 work alone or with Ctrl, Alt and Shift; letters and top-row digits need Ctrl or Alt. The numpad and the Windows key are not supported. Delete clears the shortcut, Escape keeps the current one. The app warns when a Ctrl+Alt shortcut would block an AltGr character on your keyboard layout.
 

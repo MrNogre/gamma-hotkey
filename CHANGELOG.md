@@ -6,6 +6,7 @@
 - Panic restore: `Ctrl+Alt+Shift+Backspace` or the tray menu's "Restore now" puts back the original gamma on every display the app still controls.
 - Displays with HDR turned on are skipped (`Skipped: HDR active`) and get no profile; a profile still applied when HDR is turned on is restored first.
 - Live preview: dragging the gamma slider of the active profile updates the displays as you drag; the value is saved when you let go.
+- Per-profile display targeting: switches on the profile card choose which displays the profile applies to; displays switched off are restored to their original gamma.
 
 ### Fixed
 - Switching profiles with a hotkey saves the settings once instead of twice.
