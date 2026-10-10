@@ -99,7 +99,7 @@ public sealed class AppSettings
     private static bool IsValidProfile(GammaProfile? profile) => profile is not null &&
         !string.IsNullOrWhiteSpace(profile.Name) && profile.Name.Length <= 60 &&
         GammaProfile.IsValidGamma(profile.Gamma) && IsValidHotkey(profile.Hotkey) &&
-        profile.Displays is not null && profile.Displays.All(d => !string.IsNullOrWhiteSpace(d));
+        (profile.Displays is null || profile.Displays.All(d => !string.IsNullOrWhiteSpace(d)));
 
     // An empty hotkey means none is assigned.
     private static bool IsValidHotkey(string hotkey) => hotkey == "" || Hotkey.TryParse(hotkey, out _, out _);

@@ -192,6 +192,8 @@
                         <TextBlock Text="Hotkey" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" x:Name="ShortcutInput" IsReadOnly="True" GotFocus="ShortcutInput_GotFocus" LostFocus="ShortcutInput_LostFocus" PreviewKeyDown="ShortcutInput_PreviewKeyDown" AutomationProperties.Name="Profile hotkey" ToolTip="Press a shortcut: F1–F12 alone or with modifiers; letters and digits need Ctrl or Alt. Delete clears; Escape keeps current."/>
                     </Grid>
+                    <TextBlock Text="Displays" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                    <StackPanel x:Name="DisplayTargets" AutomationProperties.Name="Profile displays"/>
                 </StackPanel>
             </Border>
             <TextBlock Grid.Row="2" Text="DISPLAY STATUS" FontWeight="Bold" Margin="4,14,0,9"/>

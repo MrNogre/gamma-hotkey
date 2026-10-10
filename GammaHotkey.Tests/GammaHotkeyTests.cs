@@ -658,7 +658,7 @@ public class GammaHotkeyTests
     }
 
     [Fact]
-    public void ProfileTargetsSelectedMonitorsOrAllWhenEmpty()
+    public void ProfileTargetsSelectedMonitorsAllWhenNullNoneWhenEmpty()
     {
         var clone = new DisplayState { DeviceName = "A", MonitorIds = ["mon-1", "mon-2"] };
         var unknown = new DisplayState { DeviceName = "B" };
@@ -667,6 +667,7 @@ public class GammaHotkeyTests
         Assert.True(profile.Targets(clone));
         Assert.False(profile.Targets(unknown));
         Assert.False(new GammaProfile { Displays = ["mon-3"] }.Targets(clone));
+        Assert.False(new GammaProfile { Displays = [] }.Targets(clone));
     }
 
     [Fact]
@@ -710,7 +711,7 @@ public class GammaHotkeyTests
     }
 
     [Fact]
-    public void SettingsDisplaysDefaultEmptyAndRejectInvalidEntries()
+    public void SettingsDisplaysDefaultToAllAndRejectInvalidEntries()
     {
         string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());
         string path = Path.Combine(directory, "settings.json");
@@ -719,11 +720,11 @@ public class GammaHotkeyTests
         {
             File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"A\",\"gamma\":1.2,\"hotkey\":\"\"}]}");
             var legacy = AppSettings.Load(path, out var warning);
-            Assert.True(warning is null && legacy.Profiles[0].Displays.Count == 0);
+            Assert.True(warning is null && legacy.Profiles[0].Displays is null);
             legacy.Profiles[0].Displays = ["mon-1"];
             legacy.Save(path);
             Assert.Equal(["mon-1"], AppSettings.Load(path, out _).Profiles[0].Displays);
-            foreach (string displays in new[] { "null", "[null]", "[\" \"]" })
+            foreach (string displays in new[] { "[null]", "[\" \"]" })
             {
                 File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"A\",\"gamma\":1,\"hotkey\":\"\",\"displays\":" + displays + "}]}");
                 var restored = AppSettings.Load(path, out warning);

@@ -11,6 +11,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using Brush = System.Windows.Media.Brush;
 using Button = System.Windows.Controls.Button;
+using CheckBox = System.Windows.Controls.CheckBox;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
 using MessageBox = System.Windows.MessageBox;
@@ -98,7 +99,7 @@ public partial class MainWindow : Window
         controller.Changed += UpdateView;
         controller.Changed += LogStatusChanges;
         monitorTimer.Tick += (_, _) => RunAction(controller.CheckForOverrides);
-        displayTimer.Tick += (_, _) => { displayTimer.Stop(); RunAction(controller.HandleDisplayChange); };
+        displayTimer.Tick += (_, _) => { displayTimer.Stop(); RunAction(controller.HandleDisplayChange); BuildDisplayTargets(); };
         previewTimer.Tick += (_, _) => { previewTimer.Stop(); PreviewGamma(); };
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
@@ -127,6 +128,7 @@ public partial class MainWindow : Window
             Cleanup();
         };
         controller.RefreshBaseline();
+        BuildDisplayTargets();
         UpdateView();
         if (StartHidden) new WindowInteropHelper(this).EnsureHandle();
     }
@@ -157,11 +159,50 @@ public partial class MainWindow : Window
         UpdateView();
     }
 
+    // One switch per connected display, then saved monitors that are not connected.
+    private void BuildDisplayTargets()
+    {
+        var profile = settings.Profiles[settings.SelectedProfile];
+        var rows = controller.Displays.Where(d => d.MonitorIds.Count > 0).Select(d => (d.Label, d.MonitorIds)).ToList();
+        var connected = rows.SelectMany(r => r.MonitorIds).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        rows.AddRange((profile.Displays ?? []).Where(id => !connected.Contains(id))
+            .Select(id => ($"{MonitorCode(id)} (not connected)", (IReadOnlyList<string>)[id])));
+        DisplayTargets.Children.Clear();
+        foreach (var (label, ids) in rows)
+        {
+            var row = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+            var toggle = new CheckBox { IsChecked = profile.Displays is null || ids.Any(id => profile.Displays.Contains(id, StringComparer.OrdinalIgnoreCase)) };
+            System.Windows.Automation.AutomationProperties.SetName(toggle, label);
+            toggle.Click += (_, _) => SetDisplayTarget(ids, toggle.IsChecked == true);
+            Grid.SetColumn(toggle, 1);
+            row.Children.Add(toggle);
+            DisplayTargets.Children.Add(row);
+        }
+    }
+
+    // Monitor paths look like \\?\DISPLAY#DEL41B4#...; the second part is the EDID id.
+    private static string MonitorCode(string path) => path.Split('#') is { Length: > 1 } parts ? parts[1] : path;
+
+    // The first toggle turns "all displays" into the connected list; every toggle applies the profile at once.
+    private void SetDisplayTarget(IReadOnlyList<string> ids, bool selected)
+    {
+        var profile = settings.Profiles[settings.SelectedProfile];
+        var displays = profile.Displays ??= controller.Displays.SelectMany(d => d.MonitorIds).ToList();
+        displays.RemoveAll(d => ids.Contains(d, StringComparer.OrdinalIgnoreCase));
+        if (selected) displays.AddRange(ids);
+        SaveSettings();
+        RunAction(() => controller.ApplyProfile(profile));
+    }
+
     private void SelectProfile(int index)
     {
         if (index < 0 || busy || exiting) return;
         settings.SelectedProfile = index;
         LoadProfile();
+        BuildDisplayTargets();
         SaveSettings();
     }
 
@@ -338,7 +379,9 @@ public partial class MainWindow : Window
             $"{active.Key!.Name}: active on {active.Count()}/{controller.Displays.Count} displays";
         if (controller.HasFailedRestore) summary = "Restore failed — check display settings or restart";
         else if (active is not null && (!ReferenceEquals(active.Key, selected) ||
-            active.Any(d => d.AppliedGamma != selected.Gamma) || editingGamma))
+            active.Any(d => d.AppliedGamma != selected.Gamma || !selected.Targets(d)) || editingGamma ||
+            controller.Displays.Any(d => selected.Targets(d) && !d.Confirmed &&
+                d.Kind is DisplayStatusKind.BaselineCaptured or DisplayStatusKind.BaselineRestored)))
             summary += " (selection pending)";
         AppliedSummary.Text = summary;
         AppliedSummary.Foreground = controller.HasFailedRestore || controller.HasOverride ? (Brush)Resources["Warning"] : (Brush)Resources["Text"];
@@ -574,6 +617,7 @@ public partial class MainWindow : Window
         ProfileSelect.SelectedIndex = settings.SelectedProfile;
         loading = false;
         LoadProfile();
+        BuildDisplayTargets();
         SaveSettings();
         RegisterProfileHotkeys();
     }

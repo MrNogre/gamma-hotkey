@@ -7,8 +7,8 @@ public sealed class GammaProfile
     public string Name { get; set; } = "Default";
     public double Gamma { get; set; } = 1.0;
     public string Hotkey { get; set; } = "";
-    // Monitor ids (monitorDevicePath) this profile applies to; empty means all displays.
-    public List<string> Displays { get; set; } = [];
+    // Monitor ids (monitorDevicePath) this profile applies to; null means all displays, empty means none.
+    public List<string>? Displays { get; set; }
     public override string ToString() => Name;
 
     // Accepts the given culture or invariant format; 0.50–4.00 in steps of 0.01.
@@ -19,7 +19,7 @@ public sealed class GammaProfile
 
     // Clone mode: a display is targeted when any of its monitors is selected.
     internal bool Targets(DisplayState display) =>
-        Displays.Count == 0 || display.MonitorIds.Any(id => Displays.Contains(id, StringComparer.OrdinalIgnoreCase));
+        Displays is null || display.MonitorIds.Any(id => Displays.Contains(id, StringComparer.OrdinalIgnoreCase));
 
     internal static bool IsValidGamma(double gamma) => double.IsFinite(gamma) && gamma >= 0.5 && gamma <= 4;
 }
