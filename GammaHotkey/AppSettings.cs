@@ -11,6 +11,8 @@ public sealed class AppSettings
     public string Theme { get; set; } = "System";
     public List<GammaProfile> Profiles { get; set; } = [new()];
     public int SelectedProfile { get; set; }
+    // Hotkey for the "None (baseline)" entry, which restores the original ramps.
+    public string BaselineHotkey { get; set; } = "";
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -94,7 +96,7 @@ public sealed class AppSettings
 
     private bool IsValid() => SchemaVersion == 2 && Theme is "Light" or "Dark" or "System" &&
         Profiles is { Count: > 0 } && SelectedProfile >= 0 && SelectedProfile < Profiles.Count &&
-        Profiles.All(IsValidProfile) && HasUniqueNames() && HasUniqueHotkeys();
+        Profiles.All(IsValidProfile) && IsValidHotkey(BaselineHotkey) && HasUniqueNames() && HasUniqueHotkeys();
 
     private static bool IsValidProfile(GammaProfile? profile) => profile is not null &&
         !string.IsNullOrWhiteSpace(profile.Name) && profile.Name.Length <= 60 &&
@@ -109,15 +111,16 @@ public sealed class AppSettings
 
     private bool HasUniqueHotkeys()
     {
-        var hotkeys = Profiles.Select(p => p.Hotkey).Where(h => h != "").ToList();
+        var hotkeys = Profiles.Select(p => p.Hotkey).Append(BaselineHotkey).Where(h => h != "").ToList();
         return hotkeys.Distinct().Count() == hotkeys.Count;
     }
 
     internal bool NameAvailable(string name, int exclude = -1) => name.Length > 0 &&
         !Profiles.Where((_, i) => i != exclude).Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
-    internal bool HotkeyTaken(string key, int exclude) =>
-        key != "" && Profiles.Where((_, i) => i != exclude).Any(p => p.Hotkey == key);
+    // exclude is the profile being edited; -1 means the baseline entry.
+    internal bool HotkeyTaken(string key, int exclude) => key != "" &&
+        (Profiles.Where((_, i) => i != exclude).Any(p => p.Hotkey == key) || exclude != -1 && BaselineHotkey == key);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

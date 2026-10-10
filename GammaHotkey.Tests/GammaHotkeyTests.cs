@@ -388,6 +388,12 @@ public class GammaHotkeyTests
         Assert.True(settings.HotkeyTaken("Ctrl+Alt+G", exclude: 0));
         Assert.False(settings.HotkeyTaken("Ctrl+Alt+G", exclude: 1));
         Assert.False(settings.HotkeyTaken("", exclude: 0));
+        settings.BaselineHotkey = "Ctrl+Alt+N";
+        Assert.True(settings.HotkeyTaken("Ctrl+Alt+N", exclude: 0));
+        Assert.False(settings.HotkeyTaken("Ctrl+Alt+N", exclude: -1));
+        Assert.True(settings.HotkeyTaken("Ctrl+Alt+G", exclude: -1));
+        settings.Profiles[0].Hotkey = "Ctrl+Alt+N";
+        Assert.Throws<ArgumentException>(() => settings.Save(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())));
     }
 
     [Fact]

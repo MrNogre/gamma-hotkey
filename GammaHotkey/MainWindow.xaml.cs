@@ -26,6 +26,7 @@ public partial class MainWindow : Window
 {
     private const int ProfileHotkeyId = 0x4800;
     private const int PanicHotkeyId = 0x47FF;
+    private const int BaselineHotkeyId = 0x47FE;
     // Ctrl+Alt+Shift+Backspace; Backspace types no character, so no AltGr conflict.
     private const uint PanicModifiers = 0x7, PanicKey = 0x08;
     private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -163,7 +164,8 @@ public partial class MainWindow : Window
         var profile = settings.Profiles[settings.SelectedProfile];
         GammaSlider.Value = profile.Gamma;
         GammaInput.Text = profile.Gamma.ToString("F2", CultureInfo.CurrentCulture);
-        ShortcutInput.Text = profile.Hotkey == "" ? "None" : profile.Hotkey;
+        string hotkey = baseline ? settings.BaselineHotkey : profile.Hotkey;
+        ShortcutInput.Text = hotkey == "" ? "None" : hotkey;
         loading = false;
         editingGamma = false;
         UpdateView();
@@ -329,10 +331,11 @@ public partial class MainWindow : Window
 
     private void SetShortcut(string key)
     {
-        if (settings.HotkeyTaken(key, settings.SelectedProfile))
+        if (settings.HotkeyTaken(key, baseline ? -1 : settings.SelectedProfile))
         { shortcutFeedback = "Already assigned to another profile."; UpdateView(); return; }
         shortcutFeedback = null;
-        settings.Profiles[settings.SelectedProfile].Hotkey = key;
+        if (baseline) settings.BaselineHotkey = key;
+        else settings.Profiles[settings.SelectedProfile].Hotkey = key;
         LoadProfile();
         RegisterProfileHotkeys();
         SaveSettings();
@@ -345,6 +348,12 @@ public partial class MainWindow : Window
         registeredProfiles.Clear();
         profileHotkeyWarning = null;
         UpdateAltGrWarning();
+        if (!capturingShortcut && Hotkey.TryParse(settings.BaselineHotkey, out uint baseModifiers, out uint baseKey))
+        {
+            if (NativeMethods.RegisterHotKey(hwnd, BaselineHotkeyId, NativeMethods.ModNoRepeat | baseModifiers, baseKey))
+                registeredProfiles.Add(BaselineHotkeyId);
+            else profileHotkeyWarning = $"Hotkey unavailable: {settings.BaselineHotkey} (None).";
+        }
         if (!capturingShortcut)
             for (int i = 0; i < settings.Profiles.Count; i++)
             {
@@ -361,9 +370,9 @@ public partial class MainWindow : Window
 
     private void UpdateAltGrWarning()
     {
-        var conflicts = settings.Profiles
-            .Select(p => Hotkey.TryParse(p.Hotkey, out uint modifiers, out uint virtualKey) &&
-                NativeMethods.AltGrCharacter(modifiers, virtualKey) is { } character ? $"{p.Hotkey} types \"{character}\"" : null)
+        var conflicts = settings.Profiles.Select(p => p.Hotkey).Append(settings.BaselineHotkey)
+            .Select(h => Hotkey.TryParse(h, out uint modifiers, out uint virtualKey) &&
+                NativeMethods.AltGrCharacter(modifiers, virtualKey) is { } character ? $"{h} types \"{character}\"" : null)
             .Where(c => c is not null).ToArray();
         altGrWarning = conflicts.Length == 0 ? null :
             string.Join(", ", conflicts) + " on this keyboard layout; the shortcut blocks that character.";
@@ -378,6 +387,8 @@ public partial class MainWindow : Window
             RefreshProfileList();
             handled = true;
         }
+        else if (message == NativeMethods.WmHotkey && (int)wParam == BaselineHotkeyId)
+        { SelectBaseline(); RefreshProfileList(); handled = true; }
         else if (message == NativeMethods.WmHotkey && (int)wParam == PanicHotkeyId) { PanicRestore(); handled = true; }
         else if (message == NativeMethods.WmDisplayChange) ScheduleDisplayRefresh();
         else if (message == NativeMethods.WmInputLangChange) { UpdateAltGrWarning(); UpdateView(); }
@@ -397,7 +408,7 @@ public partial class MainWindow : Window
     {
         if (tray is null || !IsInitialized) return;
         DeleteButton.IsEnabled = !baseline && settings.Profiles.Count > 1;
-        RenameButton.IsEnabled = GammaSlider.IsEnabled = GammaInput.IsEnabled = DisplayTargets.IsEnabled = ShortcutInput.IsEnabled = !baseline;
+        RenameButton.IsEnabled = GammaSlider.IsEnabled = GammaInput.IsEnabled = DisplayTargets.IsEnabled = !baseline;
         GammaProfile? selected = baseline ? null : settings.Profiles[settings.SelectedProfile];
         var confirmed = controller.Displays.Where(d => d.Confirmed).ToArray();
         var active = confirmed.GroupBy(d => d.AppliedProfile)
