@@ -52,6 +52,8 @@ public partial class MainWindow : Window
     private bool cleaned;
     private bool busy;
     private bool editingGamma;
+    // The first combo item is the baseline, not a stored profile; startup selects it.
+    private bool baseline = true;
     public bool StartHidden => settings.StartInTray;
 
     public MainWindow()
@@ -60,8 +62,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         VersionText.Text = $"Version {typeof(MainWindow).Assembly.GetName().Version!.ToString(3)}";
         loading = true;
-        ProfileSelect.ItemsSource = settings.Profiles;
-        ProfileSelect.SelectedIndex = settings.SelectedProfile;
+        RefreshProfileList();
         StartMinimized.IsChecked = settings.StartInTray;
         ThemeSelect.SelectedIndex = settings.Theme switch { "Light" => 0, "Dark" => 1, _ => 2 };
         try
@@ -99,7 +100,16 @@ public partial class MainWindow : Window
         controller.Changed += UpdateView;
         controller.Changed += LogStatusChanges;
         monitorTimer.Tick += (_, _) => RunAction(controller.CheckForOverrides);
-        displayTimer.Tick += (_, _) => { displayTimer.Stop(); RunAction(controller.HandleDisplayChange); BuildDisplayTargets(); };
+        displayTimer.Tick += (_, _) =>
+        {
+            displayTimer.Stop();
+            RunAction(controller.HandleDisplayChange);
+            // The ramps are restored, so the selection falls back to the baseline.
+            baseline = true;
+            RefreshProfileList();
+            LoadProfile();
+            BuildDisplayTargets();
+        };
         previewTimer.Tick += (_, _) => { previewTimer.Stop(); PreviewGamma(); };
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
@@ -197,22 +207,41 @@ public partial class MainWindow : Window
         RunAction(() => controller.ApplyProfile(profile));
     }
 
+    // Selecting a profile applies it at once.
     private void SelectProfile(int index)
     {
         if (index < 0 || busy || exiting) return;
+        baseline = false;
         settings.SelectedProfile = index;
         LoadProfile();
         BuildDisplayTargets();
         SaveSettings();
+        RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile]));
+    }
+
+    private void SelectBaseline()
+    {
+        if (busy || exiting) return;
+        baseline = true;
+        LoadProfile();
+        RunAction(controller.Restore);
     }
 
     private void ProfileSelect_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!loading) SelectProfile(ProfileSelect.SelectedIndex);
+        if (loading) return;
+        if (ProfileSelect.SelectedIndex == 0) SelectBaseline();
+        else SelectProfile(ProfileSelect.SelectedIndex - 1);
     }
 
-    private void ApplyButton_Click(object sender, RoutedEventArgs e) =>
-        RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile]));
+    private void RefreshProfileList()
+    {
+        bool wasLoading = loading;
+        loading = true;
+        ProfileSelect.ItemsSource = new object[] { "None (baseline)" }.Concat(settings.Profiles).ToList();
+        ProfileSelect.SelectedIndex = baseline ? 0 : settings.SelectedProfile + 1;
+        loading = wasLoading;
+    }
 
     private void GammaSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
@@ -239,6 +268,7 @@ public partial class MainWindow : Window
         {
             settings.Profiles[settings.SelectedProfile].Gamma = value;
             SaveSettings();
+            if (!baseline) RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile]));
         }
         UpdateView();
     }
@@ -345,11 +375,7 @@ public partial class MainWindow : Window
             (int)wParam < ProfileHotkeyId + settings.Profiles.Count)
         {
             SelectProfile((int)wParam - ProfileHotkeyId);
-            // Sync the combo without re-entering SelectProfile (second save).
-            loading = true;
-            ProfileSelect.SelectedIndex = settings.SelectedProfile;
-            loading = false;
-            RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile]));
+            RefreshProfileList();
             handled = true;
         }
         else if (message == NativeMethods.WmHotkey && (int)wParam == PanicHotkeyId) { PanicRestore(); handled = true; }
@@ -370,15 +396,16 @@ public partial class MainWindow : Window
     private void UpdateView()
     {
         if (tray is null || !IsInitialized) return;
-        DeleteButton.IsEnabled = settings.Profiles.Count > 1;
-        var selected = settings.Profiles[settings.SelectedProfile];
+        DeleteButton.IsEnabled = !baseline && settings.Profiles.Count > 1;
+        RenameButton.IsEnabled = GammaSlider.IsEnabled = GammaInput.IsEnabled = DisplayTargets.IsEnabled = ShortcutInput.IsEnabled = !baseline;
+        GammaProfile? selected = baseline ? null : settings.Profiles[settings.SelectedProfile];
         var confirmed = controller.Displays.Where(d => d.Confirmed).ToArray();
         var active = confirmed.GroupBy(d => d.AppliedProfile)
             .OrderByDescending(g => g.Count()).ThenByDescending(g => ReferenceEquals(g.Key, selected)).FirstOrDefault();
-        string summary = active is null ? "None · Apply required" :
+        string summary = active is null ? "None" :
             $"{active.Key!.Name}: active on {active.Count()}/{controller.Displays.Count} displays";
         if (controller.HasFailedRestore) summary = "Restore failed — check display settings or restart";
-        else if (active is not null && (!ReferenceEquals(active.Key, selected) ||
+        else if (active is not null && (selected is null || !ReferenceEquals(active.Key, selected) ||
             active.Any(d => d.AppliedGamma != selected.Gamma || !selected.Targets(d)) || editingGamma ||
             controller.Displays.Any(d => selected.Targets(d) && !d.Confirmed &&
                 d.Kind is DisplayStatusKind.BaselineCaptured or DisplayStatusKind.BaselineRestored)))
@@ -568,8 +595,8 @@ public partial class MainWindow : Window
         string? name = PromptName("New profile", "");
         if (!ValidName(name)) return;
         settings.Profiles.Add(new GammaProfile { Name = name!, Gamma = settings.Profiles[settings.SelectedProfile].Gamma });
-        ProfileSelect.Items.Refresh();
-        ProfileSelect.SelectedIndex = settings.Profiles.Count - 1;
+        RefreshProfileList();
+        ProfileSelect.SelectedIndex = settings.Profiles.Count;
         RegisterProfileHotkeys();
     }
     private void Rename_Click(object sender, RoutedEventArgs e)
@@ -578,7 +605,7 @@ public partial class MainWindow : Window
         string? name = PromptName("Rename profile", settings.Profiles[index].Name);
         if (!ValidName(name, index)) return;
         settings.Profiles[index].Name = name!;
-        ProfileSelect.Items.Refresh();
+        RefreshProfileList();
         RegisterProfileHotkeys();
         SaveSettings();
     }
@@ -610,12 +637,11 @@ public partial class MainWindow : Window
         yes.Click += (_, _) => dialog.DialogResult = true;
         buttons.Children.Add(yes); buttons.Children.Add(no); panel.Children.Add(buttons);
         if (dialog.ShowDialog() != true) return;
-        loading = true;
         settings.Profiles.RemoveAt(index);
         settings.SelectedProfile = Math.Min(index, settings.Profiles.Count - 1);
-        ProfileSelect.Items.Refresh();
-        ProfileSelect.SelectedIndex = settings.SelectedProfile;
-        loading = false;
+        baseline = true;
+        RefreshProfileList();
+        RunAction(controller.Restore);
         LoadProfile();
         BuildDisplayTargets();
         SaveSettings();
@@ -666,7 +692,9 @@ public partial class MainWindow : Window
     {
         Log.Write("Panic restore");
         EmergencyRestore();
-        UpdateView();
+        baseline = true;
+        RefreshProfileList();
+        LoadProfile();
     }
 
     internal void CrashExit()
