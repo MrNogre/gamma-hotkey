@@ -7,6 +7,10 @@
 - Displays with HDR turned on are skipped (`Skipped: HDR active`) and get no profile; a profile still applied when HDR is turned on is restored first.
 - Live preview: dragging the gamma slider of the active profile updates the displays as you drag; the value is saved when you let go.
 - Per-profile display targeting: switches on the profile card choose which displays the profile applies to; displays switched off are restored to their original gamma.
+- A "None (baseline)" entry at the top of the profile list restores the original gamma and can have its own hotkey; the app starts on it, and panic restore, profile delete and display changes return to it.
+
+### Changed
+- The Apply profile button is gone: choosing a profile in the list applies it, and a gamma typed into the box is applied on Enter.
 
 ### Fixed
 - Switching profiles with a hotkey saves the settings once instead of twice.
