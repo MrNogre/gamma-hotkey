@@ -35,7 +35,7 @@ gh attestation verify gamma-hotkey-vX.Y.Z-win-x64.zip --repo MrNogre/gamma-hotke
 
 ## Usage
 
-Create a profile, set its gamma, and select **Apply profile**. Choosing a profile in the list only selects it for editing; **Apply profile** or the profile's hotkey applies it. Values above 1.00 brighten dark and mid tones, values below 1.00 darken them.
+Create a profile, set its gamma, and select **Apply profile**. Choosing a profile in the list only selects it for editing; **Apply profile** or the profile's hotkey applies it. Values above 1.00 brighten dark and mid tones, values below 1.00 darken them. While a profile is active, dragging its slider previews the change live on the displays it runs on.
 
 Hotkeys: click the shortcut box and press the combination. F1–F12 work alone or with Ctrl, Alt and Shift; letters and top-row digits need Ctrl or Alt. The numpad and the Windows key are not supported. Delete clears the shortcut, Escape keeps the current one. The app warns when a Ctrl+Alt shortcut would block an AltGr character on your keyboard layout.
 
