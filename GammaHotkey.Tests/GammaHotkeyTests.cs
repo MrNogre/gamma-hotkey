@@ -657,6 +657,82 @@ public class GammaHotkeyTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
+    [Fact]
+    public void ProfileTargetsSelectedMonitorsOrAllWhenEmpty()
+    {
+        var clone = new DisplayState { DeviceName = "A", MonitorIds = ["mon-1", "mon-2"] };
+        var unknown = new DisplayState { DeviceName = "B" };
+        Assert.True(new GammaProfile().Targets(clone) && new GammaProfile().Targets(unknown));
+        var profile = new GammaProfile { Displays = ["MON-2"] };
+        Assert.True(profile.Targets(clone));
+        Assert.False(profile.Targets(unknown));
+        Assert.False(new GammaProfile { Displays = ["mon-3"] }.Targets(clone));
+    }
+
+    [Fact]
+    public void ApplyRestoresOwnedNonTargetedDisplayAndLeavesExternalAlone()
+    {
+        var original = IdentityRamp();
+        var ramps = new Dictionary<string, GammaRamp> { ["A"] = original, ["B"] = original, ["C"] = original };
+        var writes = new List<string>();
+        var controller = new GammaController(() => ["A", "B", "C"], name => ramps[name],
+            (name, ramp) => { writes.Add(name); ramps[name] = ramp; return true; }, monitorIds: name => ["mon-" + name]);
+        controller.RefreshBaseline();
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        var external = original.Bright(1.5);
+        ramps["C"] = external;
+        writes.Clear();
+        var main = new GammaProfile { Name = "Main", Gamma = 1.5, Displays = ["mon-A"] };
+        controller.ApplyProfile(main);
+        var byName = controller.Displays.ToDictionary(d => d.DeviceName);
+        Assert.True(byName["A"].Confirmed && ReferenceEquals(byName["A"].AppliedProfile, main));
+        Assert.True(byName["B"].Kind == DisplayStatusKind.BaselineRestored && ramps["B"].Matches(original));
+        Assert.True(byName["C"].Kind == DisplayStatusKind.RestoreSkipped && ramps["C"].Matches(external));
+        Assert.DoesNotContain("C", writes);
+    }
+
+    [Fact]
+    public void PreviewSkipsNonTargetedDisplays()
+    {
+        var original = IdentityRamp();
+        var ramps = new Dictionary<string, GammaRamp> { ["A"] = original, ["B"] = original };
+        var touched = new List<string>();
+        var controller = new GammaController(() => ["A", "B"], name => { touched.Add(name); return ramps[name]; },
+            (name, ramp) => { touched.Add(name); ramps[name] = ramp; return true; }, monitorIds: name => ["mon-" + name]);
+        controller.RefreshBaseline();
+        var all = new GammaProfile { Gamma = 2 };
+        controller.ApplyProfile(all);
+        all.Displays = ["mon-A"];
+        touched.Clear();
+        controller.ApplyProfile(all, 1.5);
+        Assert.DoesNotContain("B", touched);
+        Assert.True(ramps["A"].Matches(original.Bright(1.5)) && ramps["B"].Matches(original.Bright(2)));
+    }
+
+    [Fact]
+    public void SettingsDisplaysDefaultEmptyAndRejectInvalidEntries()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());
+        string path = Path.Combine(directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"A\",\"gamma\":1.2,\"hotkey\":\"\"}]}");
+            var legacy = AppSettings.Load(path, out var warning);
+            Assert.True(warning is null && legacy.Profiles[0].Displays.Count == 0);
+            legacy.Profiles[0].Displays = ["mon-1"];
+            legacy.Save(path);
+            Assert.Equal(["mon-1"], AppSettings.Load(path, out _).Profiles[0].Displays);
+            foreach (string displays in new[] { "null", "[null]", "[\" \"]" })
+            {
+                File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"A\",\"gamma\":1,\"hotkey\":\"\",\"displays\":" + displays + "}]}");
+                var restored = AppSettings.Load(path, out warning);
+                Assert.True(warning is not null && restored.Profiles[0].Name == "Default");
+            }
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     private static GammaRamp IdentityRamp()
     {
         var values = new ushort[GammaRamp.Length];

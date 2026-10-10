@@ -4,6 +4,7 @@ internal sealed class DisplayState
 {
     public required string DeviceName { get; init; }
     public string Label { get; init; } = "";
+    public IReadOnlyList<string> MonitorIds { get; init; } = [];
     public GammaRamp? BaselineRamp { get; set; }
     public GammaRamp? LastAppliedRamp { get; set; }
     public GammaProfile? AppliedProfile { get; set; }

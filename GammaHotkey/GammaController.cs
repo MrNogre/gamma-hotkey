@@ -8,6 +8,7 @@ internal sealed class GammaController
     private readonly Func<string, GammaRamp, bool> write;
     private readonly Func<string, string> label;
     private readonly Func<string, bool> isHdr;
+    private readonly Func<string, IReadOnlyList<string>> monitorIds;
     public IReadOnlyCollection<DisplayState> Displays => displays.Values;
     public bool HasAppliedRamp => displays.Values.Any(d => d.LastAppliedRamp is not null);
     public bool HasOverride => displays.Values.Any(d => d.Overridden);
@@ -16,8 +17,9 @@ internal sealed class GammaController
 
     public GammaController(Func<IEnumerable<string>>? screenNames = null,
         Func<string, GammaRamp?>? read = null, Func<string, GammaRamp, bool>? write = null, Func<string, string>? label = null,
-        Func<string, bool>? isHdr = null)
+        Func<string, bool>? isHdr = null, Func<string, IReadOnlyList<string>>? monitorIds = null)
     {
+        this.monitorIds = monitorIds ?? NativeMethods.MonitorPaths;
         this.screenNames = screenNames ?? (() => Screen.AllScreens.Select(s => s.DeviceName));
         this.label = label ?? NativeMethods.DisplayLabel;
         isHdr ??= NativeMethods.IsHdr;
@@ -50,10 +52,10 @@ internal sealed class GammaController
         Changed?.Invoke();
     }
 
-    // Label is resolved once here; the UI reads it on every refresh.
+    // Label and monitor ids are resolved once here; the UI reads them on every refresh.
     private void Add(string name)
     {
-        var state = new DisplayState { DeviceName = name, Label = label(name) };
+        var state = new DisplayState { DeviceName = name, Label = label(name), MonitorIds = monitorIds(name) };
         displays.Add(name, state);
         if (!SkipIfHdr(state)) Capture(state);
     }
@@ -90,12 +92,18 @@ internal sealed class GammaController
 
     // gamma = live preview: overrides profile.Gamma and only touches displays
     // still confirmed with this profile and owned; external ramps are left alone.
+    // Non-targeted displays get their owned ramp restored (skipped during preview).
     public void ApplyProfile(GammaProfile profile, double? gamma = null)
     {
         double value = gamma ?? profile.Gamma;
         foreach (var display in displays.Values)
         {
             if (display.RestoreFailed || SkipIfHdr(display)) continue;
+            if (!profile.Targets(display))
+            {
+                if (gamma is null) RestoreDisplay(display);
+                continue;
+            }
             if (gamma is not null && !(display.Confirmed && ReferenceEquals(display.AppliedProfile, profile))) continue;
             var current = read(display.DeviceName);
             if (current is null)

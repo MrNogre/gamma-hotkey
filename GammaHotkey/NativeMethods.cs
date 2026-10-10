@@ -145,6 +145,18 @@ internal static class NativeMethods
         return FormatDisplayLabel(deviceName, null);
     }
 
+    // Stable monitor ids (monitorDevicePath) of the display's active targets.
+    internal static IReadOnlyList<string> MonitorPaths(string deviceName)
+    {
+        var result = new List<string>();
+        foreach (var path in PathsFor(deviceName))
+        {
+            var target = new TargetName { Header = Header<TargetName>(DisplayConfigDeviceInfoGetTargetName, path.Target.Adapter, path.Target.Id) };
+            if (DisplayConfigGetDeviceInfo(ref target) == 0 && !string.IsNullOrWhiteSpace(target.Path)) result.Add(target.Path);
+        }
+        return result;
+    }
+
     // True when any target of the display runs HDR; query errors count as SDR.
     internal static bool IsHdr(string deviceName)
     {
