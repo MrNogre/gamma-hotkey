@@ -88,11 +88,15 @@ internal sealed class GammaController
         display.SetStatus(DisplayStatusKind.BaselineCaptured);
     }
 
-    public void ApplyProfile(GammaProfile profile)
+    // gamma = live preview: overrides profile.Gamma and only touches displays
+    // still confirmed with this profile and owned; external ramps are left alone.
+    public void ApplyProfile(GammaProfile profile, double? gamma = null)
     {
+        double value = gamma ?? profile.Gamma;
         foreach (var display in displays.Values)
         {
             if (display.RestoreFailed || SkipIfHdr(display)) continue;
+            if (gamma is not null && !(display.Confirmed && ReferenceEquals(display.AppliedProfile, profile))) continue;
             var current = read(display.DeviceName);
             if (current is null)
             {
@@ -101,7 +105,8 @@ internal sealed class GammaController
                 continue;
             }
             bool owned = display.LastAppliedRamp is not null && current.Matches(display.LastAppliedRamp);
-            if (owned && display.Confirmed && ReferenceEquals(display.AppliedProfile, profile) && display.AppliedGamma == profile.Gamma)
+            if (gamma is not null && !owned) continue;
+            if (owned && display.Confirmed && ReferenceEquals(display.AppliedProfile, profile) && display.AppliedGamma == value)
                 continue;
             if (!owned && (display.BaselineRamp is null || !current.Matches(display.BaselineRamp)))
             {
@@ -119,7 +124,7 @@ internal sealed class GammaController
                 display.BaselineRamp = current;
             }
             GammaRamp target;
-            try { target = display.BaselineRamp.Bright(profile.Gamma); }
+            try { target = display.BaselineRamp.Bright(value); }
             catch (ArgumentException) { display.SetStatus(DisplayStatusKind.Failed, "invalid profile ramp"); continue; }
             if (!write(display.DeviceName, target))
             {
@@ -136,7 +141,7 @@ internal sealed class GammaController
             }
             display.LastAppliedRamp = observed;
             display.AppliedProfile = profile;
-            display.AppliedGamma = profile.Gamma;
+            display.AppliedGamma = value;
             display.Overridden = false;
             display.SetStatus(DisplayStatusKind.Confirmed, profile.Name);
         }

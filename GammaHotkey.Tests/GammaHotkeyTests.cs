@@ -55,6 +55,29 @@ public class GammaHotkeyTests
     }
 
     [Fact]
+    public void PreviewGammaAppliesWithoutChangingProfile()
+    {
+        GammaRamp current = IdentityRamp();
+        int writes = 0;
+        var controller = new GammaController(() => ["A"], _ => current, (_, target) =>
+        { writes++; current = target; return true; });
+        controller.RefreshBaseline();
+        var profile = new GammaProfile { Gamma = 1.5 };
+        controller.ApplyProfile(profile, 2.0);
+        Assert.True(writes == 0); // Preview never applies a profile that is not active.
+        controller.ApplyProfile(profile);
+        controller.ApplyProfile(profile, 2.0);
+        var display = controller.Displays.Single();
+        Assert.True(writes == 2 && display.Confirmed && display.AppliedGamma == 2.0 && profile.Gamma == 1.5);
+        profile.Gamma = 2.0; // Commit after preview needs no second write.
+        controller.ApplyProfile(profile);
+        Assert.True(writes == 2);
+        current = CurvedRamp(); // External change: preview leaves it alone.
+        controller.ApplyProfile(profile, 1.2);
+        Assert.True(writes == 2 && current.Matches(CurvedRamp()));
+    }
+
+    [Fact]
     public void DistinctRgbBaselinesStayDistinct()
     {
         var bright = CurvedRamp().Bright(2.0);

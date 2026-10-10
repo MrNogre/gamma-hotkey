@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly WF.NotifyIcon tray;
     private readonly DispatcherTimer monitorTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private readonly DispatcherTimer displayTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
+    private readonly DispatcherTimer previewTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly List<int> registeredProfiles = [];
     private readonly Dictionary<string, string> loggedStatus = new(StringComparer.OrdinalIgnoreCase);
     private readonly object restoreGate = new();
@@ -98,6 +99,7 @@ public partial class MainWindow : Window
         controller.Changed += LogStatusChanges;
         monitorTimer.Tick += (_, _) => RunAction(controller.CheckForOverrides);
         displayTimer.Tick += (_, _) => { displayTimer.Stop(); RunAction(controller.HandleDisplayChange); };
+        previewTimer.Tick += (_, _) => { previewTimer.Stop(); PreviewGamma(); };
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
@@ -176,8 +178,13 @@ public partial class MainWindow : Window
         if (loading || GammaInput is null) return;
         GammaInput.Text = GammaSlider.Value.ToString("F2", CultureInfo.CurrentCulture);
         editingGamma = true;
+        previewTimer.Start();
         UpdateView();
     }
+
+    // Live preview while sliding; the controller limits it to displays running this profile.
+    private void PreviewGamma() =>
+        RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile], Math.Round(GammaSlider.Value, 2)));
 
     private void CommitGamma(double value)
     {
