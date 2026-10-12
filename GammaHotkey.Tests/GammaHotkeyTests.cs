@@ -212,6 +212,29 @@ public class GammaHotkeyTests
     }
 
     [Fact]
+    public void ThrowingDisplayQueriesKeepTheControllerAndItsOwnership()
+    {
+        GammaRamp current = IdentityRamp();
+        bool failEnumeration = false;
+        IEnumerable<string> Names()
+        {
+            yield return "A";
+            if (failEnumeration) throw new InvalidOperationException();
+        }
+        var controller = new GammaController(Names, _ => current, (_, target) => { current = target; return true; },
+            _ => throw new InvalidOperationException(), _ => false, _ => throw new InvalidOperationException());
+        controller.RefreshBaseline();
+        var display = controller.Displays.Single();
+        Assert.True(display.Label == "A" && display.MonitorIds.Count == 0 && display.Kind == DisplayStatusKind.BaselineCaptured);
+        controller.ApplyProfile(new GammaProfile { Gamma = 2 });
+        failEnumeration = true;
+        Assert.False(controller.HandleDisplayChange());
+        Assert.True(controller.HasAppliedRamp && display.Kind == DisplayStatusKind.Confirmed);
+        controller.Restore();
+        Assert.True(current.Matches(IdentityRamp()) && !controller.HasAppliedRamp);
+    }
+
+    [Fact]
     public void LogKeepsOnlyTheNewestFiveFiles()
     {
         string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());

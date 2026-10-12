@@ -104,9 +104,10 @@ public partial class MainWindow : Window
         displayTimer.Tick += (_, _) =>
         {
             displayTimer.Stop();
-            RunAction(controller.HandleDisplayChange);
+            bool refreshed = false;
+            RunAction(() => refreshed = controller.HandleDisplayChange());
             // The ramps are restored, so the selection falls back to the baseline.
-            baseline = true;
+            if (refreshed) baseline = true;
             RefreshProfileList();
             LoadProfile();
             BuildDisplayTargets();

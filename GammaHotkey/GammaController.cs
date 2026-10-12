@@ -3,7 +3,7 @@ namespace GammaHotkey;
 internal sealed class GammaController
 {
     private readonly Dictionary<string, DisplayState> displays = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Func<IEnumerable<string>> screenNames;
+    private readonly Func<List<string>?> screenNames;
     private readonly Func<string, GammaRamp?> read;
     private readonly Func<string, GammaRamp, bool> write;
     private readonly Func<string, string> label;
@@ -19,10 +19,26 @@ internal sealed class GammaController
         Func<string, GammaRamp?>? read = null, Func<string, GammaRamp, bool>? write = null, Func<string, string>? label = null,
         Func<string, bool>? isHdr = null, Func<string, IReadOnlyList<string>>? monitorIds = null)
     {
-        this.monitorIds = monitorIds ?? NativeMethods.MonitorPaths;
-        this.screenNames = screenNames ?? (() => Screen.AllScreens.Select(s => s.DeviceName));
-        this.label = label ?? NativeMethods.DisplayLabel;
+        monitorIds ??= NativeMethods.MonitorPaths;
+        screenNames ??= () => Screen.AllScreens.Select(s => s.DeviceName);
+        label ??= NativeMethods.DisplayLabel;
         isHdr ??= NativeMethods.IsHdr;
+        // Enumeration failure yields null so callers keep the current display state.
+        this.screenNames = () =>
+        {
+            try { return screenNames().ToList(); }
+            catch (Exception ex) { Log.Write($"Display enumeration failed: {ex.Message}"); return null; }
+        };
+        this.label = name =>
+        {
+            try { return label(name); }
+            catch (Exception ex) { Log.Write($"{name}: label query failed: {ex.Message}"); return NativeMethods.FormatDisplayLabel(name, null); }
+        };
+        this.monitorIds = name =>
+        {
+            try { return monitorIds(name); }
+            catch (Exception ex) { Log.Write($"{name}: monitor id query failed: {ex.Message}"); return []; }
+        };
         read ??= name => OnDc(name, dc => NativeMethods.Read(dc, out var ramp) ? ramp : null);
         write ??= (name, ramp) => OnDc(name, dc => NativeMethods.Write(dc, ramp));
         // Native errors count as failed reads/writes, so Restore never throws.
@@ -45,9 +61,9 @@ internal sealed class GammaController
 
     public void RefreshBaseline()
     {
-        if (HasAppliedRamp || HasFailedRestore) return;
+        if (HasAppliedRamp || HasFailedRestore || screenNames() is not { } names) return;
         displays.Clear();
-        foreach (string name in screenNames().Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (string name in names.Distinct(StringComparer.OrdinalIgnoreCase))
             Add(name);
         Changed?.Invoke();
     }
@@ -212,9 +228,11 @@ internal sealed class GammaController
         display.SetStatus(DisplayStatusKind.BaselineRestored);
     }
 
-    public void HandleDisplayChange()
+    // Returns false when enumeration failed and nothing was restored.
+    public bool HandleDisplayChange()
     {
-        var present = screenNames().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (screenNames() is not { } names) return false;
+        var present = names.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var display in displays.Values.Where(d => !present.Contains(d.DeviceName)))
         {
             display.LastAppliedRamp = null;
@@ -235,5 +253,6 @@ internal sealed class GammaController
                 Add(name);
         }
         Changed?.Invoke();
+        return true;
     }
 }
