@@ -98,7 +98,8 @@ public partial class MainWindow : Window
         };
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow);
 
-        controller.Changed += UpdateView;
+        // EmergencyRestore may run off the UI thread; skip the view there so status logging still runs.
+        controller.Changed += () => { if (Dispatcher.CheckAccess()) UpdateView(); };
         controller.Changed += LogStatusChanges;
         monitorTimer.Tick += (_, _) => RunAction(controller.CheckForOverrides);
         displayTimer.Tick += (_, _) =>
@@ -696,7 +697,7 @@ public partial class MainWindow : Window
     {
         lock (restoreGate)
             try { controller.Restore(); }
-            catch (Exception) { }
+            catch (Exception ex) { Log.Write("Emergency restore failed: " + ex); }
     }
 
     // Bypasses the busy flag so it works even mid-action; restore stays ownership-aware.
