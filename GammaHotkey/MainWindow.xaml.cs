@@ -270,7 +270,16 @@ public partial class MainWindow : Window
         RunAction(controller.Restore);
     }
 
-    private void ProfileSelect_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ProfileSelect_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplySelection();
+
+    // Choosing the selected entry again raises no SelectionChanged; it reapplies, e.g. after another program overrode the ramp.
+    private void ProfileSelect_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement(ProfileSelect, (DependencyObject)e.OriginalSource) is ComboBoxItem { IsSelected: true })
+            ApplySelection();
+    }
+
+    private void ApplySelection()
     {
         if (loading) return;
         if (ProfileSelect.SelectedIndex == 0) SelectBaseline();

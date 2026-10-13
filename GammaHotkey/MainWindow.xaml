@@ -199,7 +199,7 @@
             <Border Grid.Row="1" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="Selected profile" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                    <ComboBox x:Name="ProfileSelect" SelectionChanged="ProfileSelect_SelectionChanged" AutomationProperties.Name="Selected profile"/>
+                    <ComboBox x:Name="ProfileSelect" SelectionChanged="ProfileSelect_SelectionChanged" PreviewMouseLeftButtonUp="ProfileSelect_PreviewMouseLeftButtonUp" AutomationProperties.Name="Selected profile"/>
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,12">
                         <TextBlock Text="APPLIED" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Muted}" Margin="0,2,22,0"/>
                         <TextBlock x:Name="AppliedSummary" AutomationProperties.Name="Applied state"/>
