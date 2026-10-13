@@ -290,6 +290,8 @@ public partial class MainWindow : Window
     {
         bool wasLoading = loading;
         loading = true;
+        // Clearing first makes the closed box re-render a renamed profile; the same instance would keep its old text.
+        ProfileSelect.SelectedIndex = -1;
         ProfileSelect.ItemsSource = new object[] { "None (baseline)" }.Concat(settings.Profiles).ToList();
         ProfileSelect.SelectedIndex = baseline ? 0 : settings.SelectedProfile + 1;
         loading = wasLoading;

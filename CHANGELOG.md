@@ -22,6 +22,7 @@
 - A click on the slider track steps the value by 0.1 instead of jumping by 1.00.
 - The main window fits the work area on small screens; the pages scroll instead of the Exit button falling off screen.
 - A display whose hardware id cannot be read is no longer dropped from a profile once display switches are changed.
+- A renamed profile shows its new name in the profile list at once.
 
 ## [0.2.0] - 2026-09-30
 
