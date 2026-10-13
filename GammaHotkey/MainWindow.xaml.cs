@@ -502,7 +502,6 @@ public partial class MainWindow : Window
         Note.Text = string.Join("  ·  ", new[] { shortcutFeedback, settingsWarning, panicHotkeyWarning, profileHotkeyWarning, altGrWarning }.Where(w => w is not null));
         Note.SetResourceReference(TextBlock.ForegroundProperty, Note.Text == "" ? "Muted" : "Warning");
         Note.ToolTip = Note.Text == "" ? null : Note.Text;
-        if (Note.Text == "") Note.Text = "Close hides to tray";
         tray.Text = controller.HasFailedRestore ? "Gamma Hotkey: restore failed" :
             controller.HasOverride ? "Gamma Hotkey: override detected" : "Gamma Hotkey";
         monitorTimer.IsEnabled = !exiting && controller.HasAppliedRamp;
