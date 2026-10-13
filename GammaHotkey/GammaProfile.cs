@@ -22,8 +22,10 @@ public sealed class GammaProfile
         isValid(value) && Math.Abs(value * 100 - Math.Round(value * 100)) < 0.000001;
 
     // Clone mode: a display is targeted when any of its monitors is selected.
+    // ponytail: a display without a monitor id has no switch, so it is always targeted; add an "unknown monitor" switch if it must be excludable.
     internal bool Targets(DisplayState display) =>
-        Displays is null || display.MonitorIds.Any(id => Displays.Contains(id, StringComparer.OrdinalIgnoreCase));
+        Displays is null || display.MonitorIds.Count == 0 ||
+        display.MonitorIds.Any(id => Displays.Contains(id, StringComparer.OrdinalIgnoreCase));
 
     internal static bool IsValidGamma(double gamma) => double.IsFinite(gamma) && gamma >= 0.5 && gamma <= 4;
     internal static bool IsValidBrightness(double brightness) => double.IsFinite(brightness) && brightness >= -0.5 && brightness <= 0.5;

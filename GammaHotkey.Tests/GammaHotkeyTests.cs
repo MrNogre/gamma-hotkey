@@ -704,7 +704,8 @@ public class GammaHotkeyTests
         Assert.True(new GammaProfile().Targets(clone) && new GammaProfile().Targets(unknown));
         var profile = new GammaProfile { Displays = ["MON-2"] };
         Assert.True(profile.Targets(clone));
-        Assert.False(profile.Targets(unknown));
+        // A display without a monitor id has no switch, so it stays targeted.
+        Assert.True(profile.Targets(unknown) && new GammaProfile { Displays = [] }.Targets(unknown));
         Assert.False(new GammaProfile { Displays = ["mon-3"] }.Targets(clone));
         Assert.False(new GammaProfile { Displays = [] }.Targets(clone));
     }
