@@ -220,6 +220,8 @@ internal sealed class GammaController
         if (!current.Matches(applied))
         {
             display.LastAppliedRamp = null;
+            display.AppliedProfile = null;
+            display.AppliedAdjustment = default;
             display.Overridden = false;
             display.SetStatus(DisplayStatusKind.RestoreSkipped, "external ramp change");
             return;
@@ -233,6 +235,7 @@ internal sealed class GammaController
         }
         display.LastAppliedRamp = null;
         display.AppliedProfile = null;
+        display.AppliedAdjustment = default;
         display.Overridden = false;
         display.RestoreFailed = false;
         display.SetStatus(DisplayStatusKind.BaselineRestored);

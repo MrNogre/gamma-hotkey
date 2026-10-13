@@ -730,6 +730,8 @@ public class GammaHotkeyTests
         Assert.True(byName["B"].Kind == DisplayStatusKind.BaselineRestored && ramps["B"].Matches(original));
         Assert.True(byName["C"].Kind == DisplayStatusKind.RestoreSkipped && ramps["C"].Matches(external));
         Assert.DoesNotContain("C", writes);
+        // Restored and skipped displays both give up ownership.
+        Assert.All(new[] { byName["B"], byName["C"] }, d => Assert.True(d.AppliedProfile is null && d.AppliedAdjustment == default));
     }
 
     [Fact]
