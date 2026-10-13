@@ -468,7 +468,9 @@ public partial class MainWindow : Window
     {
         if (tray is null || !IsInitialized) return;
         DeleteButton.IsEnabled = !baseline && settings.Profiles.Count > 1;
-        RenameButton.IsEnabled = DisplayTargets.IsEnabled = !baseline;
+        RenameButton.IsEnabled = !baseline;
+        // The baseline has no display targets, so the previous profile's switches are hidden.
+        DisplaysHeader.Visibility = DisplayTargets.Visibility = baseline ? Visibility.Collapsed : Visibility.Visible;
         foreach (var field in fields) field.Slider.IsEnabled = field.Input.IsEnabled = !baseline;
         GammaProfile? selected = baseline ? null : settings.Profiles[settings.SelectedProfile];
         var confirmed = controller.Displays.Where(d => d.Confirmed).ToArray();

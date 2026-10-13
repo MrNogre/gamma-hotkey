@@ -136,21 +136,50 @@
             <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
         </Style>
         <Style TargetType="Slider">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
                 <Track x:Name="PART_Track" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
                        Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Height="20" VerticalAlignment="Center">
                     <Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
                         <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="4" Background="{DynamicResource Accent}" CornerRadius="2" VerticalAlignment="Center"/></ControlTemplate></RepeatButton.Template>
                     </RepeatButton></Track.DecreaseRepeatButton>
-                    <Track.Thumb><Thumb Width="18" Height="18">
-                        <Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse Fill="{DynamicResource Accent}"/></ControlTemplate></Thumb.Template>
+                    <Track.Thumb><Thumb x:Name="SliderThumb" Width="18" Height="18">
+                        <Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse Fill="{DynamicResource Accent}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="2"/></ControlTemplate></Thumb.Template>
                     </Thumb></Track.Thumb>
                     <Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
                         <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Height="4" Background="{DynamicResource Outline}" CornerRadius="2" VerticalAlignment="Center"/></ControlTemplate></RepeatButton.Template>
                     </RepeatButton></Track.IncreaseRepeatButton>
                 </Track>
+                <!-- Keyboard focus rings the thumb. -->
+                <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SliderThumb" Property="BorderBrush" Value="{DynamicResource Text}"/></Trigger></ControlTemplate.Triggers>
             </ControlTemplate></Setter.Value></Setter>
             <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
+        </Style>
+        <!-- Thin themed vertical scroll bar without arrow buttons; horizontal bars keep the default. -->
+        <Style TargetType="ScrollBar">
+            <Style.Triggers><Trigger Property="Orientation" Value="Vertical">
+                <Setter Property="Width" Value="10"/>
+                <Setter Property="MinWidth" Value="10"/>
+                <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+                    <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="2,0">
+                        <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template>
+                        </RepeatButton></Track.DecreaseRepeatButton>
+                        <Track.Thumb><Thumb>
+                            <Thumb.Template><ControlTemplate TargetType="Thumb">
+                                <Border x:Name="ScrollThumb" Background="{DynamicResource Outline}" CornerRadius="3"/>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{DynamicResource Muted}"/></Trigger>
+                                    <Trigger Property="IsDragging" Value="True"><Setter TargetName="ScrollThumb" Property="Background" Value="{DynamicResource Muted}"/></Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate></Thumb.Template>
+                        </Thumb></Track.Thumb>
+                        <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template>
+                        </RepeatButton></Track.IncreaseRepeatButton>
+                    </Track>
+                </ControlTemplate></Setter.Value></Setter>
+            </Trigger></Style.Triggers>
         </Style>
         <Style x:Key="Card" TargetType="Border"><Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="BorderBrush" Value="{DynamicResource Outline}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="8"/><Setter Property="Padding" Value="16"/></Style>
     </Window.Resources>
@@ -202,7 +231,7 @@
                         <TextBlock Text="Hotkey" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" x:Name="ShortcutInput" IsReadOnly="True" GotFocus="ShortcutInput_GotFocus" LostFocus="ShortcutInput_LostFocus" PreviewKeyDown="ShortcutInput_PreviewKeyDown" AutomationProperties.Name="Profile hotkey" ToolTip="Press a shortcut: F1–F12 alone or with modifiers; letters and digits need Ctrl or Alt. Delete clears; Escape keeps current."/>
                     </Grid>
-                    <TextBlock Text="Displays" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                    <TextBlock x:Name="DisplaysHeader" Text="Displays" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <StackPanel x:Name="DisplayTargets" AutomationProperties.Name="Profile displays"/>
                 </StackPanel>
             </Border>
