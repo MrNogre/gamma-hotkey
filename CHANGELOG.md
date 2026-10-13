@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.0] - 2026-10-13
 
 ### Added
 - Panic restore: `Ctrl+Alt+Shift+Backspace` or the tray menu's "Restore now" puts back the original gamma on every display the app still controls.
