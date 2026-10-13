@@ -101,6 +101,26 @@ public partial class MainWindow : Window
         menu.Items.Add("Restore now", null, (_, _) => Dispatcher.Invoke(PanicRestore));
         menu.Items.Add(new WF.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(ExitApp));
+        // Profile items are rebuilt on open, so adding, renaming or deleting a profile needs no sync.
+        var profileItems = new List<WF.ToolStripItem>();
+        menu.Opening += (_, _) =>
+        {
+            foreach (var item in profileItems) { menu.Items.Remove(item); item.Dispose(); }
+            profileItems.Clear();
+            profileItems.Add(new WF.ToolStripMenuItem("None (baseline)", null,
+                (_, _) => Dispatcher.Invoke(() => { SelectBaseline(); RefreshProfileList(); }))
+            { Checked = baseline });
+            for (int i = 0; i < settings.Profiles.Count; i++)
+            {
+                int index = i;
+                // "&" marks a mnemonic in menu text.
+                profileItems.Add(new WF.ToolStripMenuItem(settings.Profiles[i].Name.Replace("&", "&&"), null,
+                    (_, _) => Dispatcher.Invoke(() => { SelectProfile(index); RefreshProfileList(); }))
+                { Checked = !baseline && index == settings.SelectedProfile });
+            }
+            profileItems.Add(new WF.ToolStripSeparator());
+            for (int i = 0; i < profileItems.Count; i++) menu.Items.Insert(i, profileItems[i]);
+        };
 #if DEBUG
         menu.Items.Add("Debug: throw", null, (_, _) =>
             Dispatcher.BeginInvoke(new Action(() => throw new InvalidOperationException("Debug crash test."))));
