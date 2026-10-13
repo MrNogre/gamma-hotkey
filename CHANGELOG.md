@@ -9,14 +9,19 @@
 - Per-profile display targeting: switches on the profile card choose which displays the profile applies to; displays switched off are restored to their original gamma.
 - A "None (baseline)" entry at the top of the profile list restores the original gamma and can have its own hotkey; the app starts on it, and panic restore, profile delete and display changes return to it.
 - Per-profile brightness (−0.50 to +0.50) and contrast (0.50 to 1.50) next to gamma, with live preview; a combination beyond the Windows ramp limit shows `Failed: exceeds Windows ramp limit`.
+- The tray menu lists "None (baseline)" and every profile; choosing one applies it.
 
 ### Changed
-- The Apply profile button is gone: choosing a profile in the list applies it, and a gamma typed into the box is applied on Enter.
+- The Apply profile button is gone: choosing a profile in the list applies it, and a value typed into a box is applied on Enter or when the box loses focus.
+- Choosing the active profile again reapplies it, for example after another program changed the ramp.
+- Thin scroll bars that follow the theme, a focus ring on the slider thumb, and no display switches while "None (baseline)" is selected.
+- The footer no longer shows the "Close hides to tray" hint.
 
 ### Fixed
 - Switching profiles with a hotkey saves the settings once instead of twice.
 - A click on the slider track steps the value by 0.1 instead of jumping by 1.00.
 - The main window fits the work area on small screens; the pages scroll instead of the Exit button falling off screen.
+- A display whose hardware id cannot be read is no longer dropped from a profile once display switches are changed.
 
 ## [0.2.0] - 2026-09-30
 
