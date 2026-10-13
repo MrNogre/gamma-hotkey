@@ -13,7 +13,7 @@ It is most useful in games: when a scene is too dark to see, one key press raise
 
 ## Features
 
-- Gamma profiles from 0.50 to 4.00, applied to all connected displays or only the ones you choose.
+- Gamma profiles from 0.50 to 4.00, with brightness and contrast, applied to all connected displays or only the ones you choose.
 - Global hotkeys per profile.
 - Per-display status, confirmed by reading the ramp back after every write.
 - Detects when another program changes the ramp and does not overwrite it.
@@ -35,7 +35,7 @@ gh attestation verify gamma-hotkey-vX.Y.Z-win-x64.zip --repo MrNogre/gamma-hotke
 
 ## Usage
 
-Create a profile and set its gamma. Choosing a profile in the list, or pressing its hotkey, applies it at once; a gamma typed into the box is applied when you press Enter. The first entry, **None (baseline)**, restores the original ramps; the app starts on it, and profile editing is disabled while it is selected. Values above 1.00 brighten dark and mid tones, values below 1.00 darken them. While a profile is active, dragging its slider previews the change live on the displays it runs on.
+Create a profile and set its gamma. Choosing a profile in the list, or pressing its hotkey, applies it at once; a gamma typed into the box is applied when you press Enter. The first entry, **None (baseline)**, restores the original ramps; the app starts on it, and profile editing is disabled while it is selected. Values above 1.00 brighten dark and mid tones, values below 1.00 darken them. While a profile is active, dragging its sliders previews the change live on the displays it runs on. Brightness shifts the whole output up or down and contrast stretches it around mid-grey; lowering both dims the screen below the monitor's own minimum. Windows rejects ramps that stray too far from neutral, so an extreme combination shows `Failed: exceeds Windows ramp limit`.
 
 Displays: each profile lists the connected displays with a switch. New profiles are on for every display. Turning a switch on or off applies the profile at once; displays switched off go back to their original gamma. Monitors are remembered by their hardware id, so a saved monitor that is unplugged shows as `(not connected)`; plugging it into a different port may need it switched on again.
 
@@ -54,7 +54,7 @@ Gamma ramps are meant for SDR output. Displays with HDR turned on are skipped an
 
 ## How it works
 
-The app reads each display's current gamma ramp through GDI (`GetDeviceGammaRamp`) and keeps it as the baseline. A profile maps the baseline through a gamma curve, checks that the result stays monotonic and within safe limits, and writes it with `SetDeviceGammaRamp`. A display is shown as applied only after the ramp read back from the driver matches the one written, within a small tolerance. Every few seconds the app checks that the ramp is still its own; if another program has changed it, the display is marked as overridden and the app leaves it alone until you apply a profile again. On restore, only ramps the app still owns are reset to the baseline.
+The app reads each display's current gamma ramp through GDI (`GetDeviceGammaRamp`) and keeps it as the baseline. A profile maps the baseline through a gamma curve, then contrast and brightness, checks that the result stays monotonic and within safe limits, and writes it with `SetDeviceGammaRamp`. A display is shown as applied only after the ramp read back from the driver matches the one written, within a small tolerance. Every few seconds the app checks that the ramp is still its own; if another program has changed it, the display is marked as overridden and the app leaves it alone until you apply a profile again. On restore, only ramps the app still owns are reset to the baseline.
 
 ## Troubleshooting
 
