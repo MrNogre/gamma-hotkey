@@ -62,6 +62,9 @@ public partial class MainWindow : Window
     {
         settings = AppSettings.Load(AppSettings.DefaultPath, out settingsWarning);
         InitializeComponent();
+        // Fit small screens; the pages scroll. ponytail: primary monitor only, use GetMonitorInfo if a smaller secondary matters.
+        Height = Math.Min(Height, SystemParameters.WorkArea.Height);
+        Width = Math.Min(Width, SystemParameters.WorkArea.Width);
         fields =
         [
             new("Gamma", GammaSlider, GammaInput, 1, "F2", GammaProfile.IsValidGamma,
