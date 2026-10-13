@@ -106,21 +106,21 @@ internal sealed class GammaController
         display.SetStatus(DisplayStatusKind.BaselineCaptured);
     }
 
-    // gamma = live preview: overrides profile.Gamma and only touches displays
+    // preview = live preview: overrides profile.Adjustment and only touches displays
     // still confirmed with this profile and owned; external ramps are left alone.
     // Non-targeted displays get their owned ramp restored (skipped during preview).
-    public void ApplyProfile(GammaProfile profile, double? gamma = null)
+    public void ApplyProfile(GammaProfile profile, Adjustment? preview = null)
     {
-        double value = gamma ?? profile.Gamma;
+        var value = preview ?? profile.Adjustment;
         foreach (var display in displays.Values)
         {
             if (display.RestoreFailed || SkipIfHdr(display)) continue;
             if (!profile.Targets(display))
             {
-                if (gamma is null) RestoreDisplay(display);
+                if (preview is null) RestoreDisplay(display);
                 continue;
             }
-            if (gamma is not null && !(display.Confirmed && ReferenceEquals(display.AppliedProfile, profile))) continue;
+            if (preview is not null && !(display.Confirmed && ReferenceEquals(display.AppliedProfile, profile))) continue;
             var current = read(display.DeviceName);
             if (current is null)
             {
@@ -129,8 +129,8 @@ internal sealed class GammaController
                 continue;
             }
             bool owned = display.LastAppliedRamp is not null && current.Matches(display.LastAppliedRamp);
-            if (gamma is not null && !owned) continue;
-            if (owned && display.Confirmed && ReferenceEquals(display.AppliedProfile, profile) && display.AppliedGamma == value)
+            if (preview is not null && !owned) continue;
+            if (owned && display.Confirmed && ReferenceEquals(display.AppliedProfile, profile) && display.AppliedAdjustment == value)
                 continue;
             if (!owned && (display.BaselineRamp is null || !current.Matches(display.BaselineRamp)))
             {
@@ -148,8 +148,18 @@ internal sealed class GammaController
                 display.BaselineRamp = current;
             }
             GammaRamp target;
-            try { target = display.BaselineRamp.Bright(value); }
-            catch (ArgumentException) { display.SetStatus(DisplayStatusKind.Failed, "invalid profile ramp"); continue; }
+            // A rejected preview leaves the display untouched, so later previews still work.
+            try { target = display.BaselineRamp.Adjust(value); }
+            catch (ArgumentException)
+            {
+                if (preview is null) display.SetStatus(DisplayStatusKind.Failed, "invalid profile ramp");
+                continue;
+            }
+            if (!target.IsSafe())
+            {
+                if (preview is null) display.SetStatus(DisplayStatusKind.Failed, "exceeds Windows ramp limit");
+                continue;
+            }
             if (!write(display.DeviceName, target))
             {
                 display.Overridden = true;
@@ -165,7 +175,7 @@ internal sealed class GammaController
             }
             display.LastAppliedRamp = observed;
             display.AppliedProfile = profile;
-            display.AppliedGamma = value;
+            display.AppliedAdjustment = value;
             display.Overridden = false;
             display.SetStatus(DisplayStatusKind.Confirmed, profile.Name);
         }

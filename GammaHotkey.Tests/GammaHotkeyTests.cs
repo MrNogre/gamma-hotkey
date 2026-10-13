@@ -11,7 +11,7 @@ public class GammaHotkeyTests
     public void GammaOneCopiesAllChannelsExactly()
     {
         var source = CurvedRamp();
-        var copy = source.Bright(1);
+        var copy = source.Adjust(Gamma(1));
         Assert.True(source.ToArray().SequenceEqual(copy.ToArray()));
     }
 
@@ -19,7 +19,7 @@ public class GammaHotkeyTests
     public void BrightPreservesEndpointsAndRaisesIdentityMidtones()
     {
         var source = IdentityRamp();
-        var bright = source.Bright(2.0);
+        var bright = source.Adjust(Gamma(2.0));
         Assert.True(bright[0] == source[0] && bright[255] == source[255]);
         Assert.True(bright[128] > source[128]);
         Assert.True(bright.IsSafe());
@@ -31,7 +31,7 @@ public class GammaHotkeyTests
         var source = IdentityRamp();
         foreach (double gamma in new[] { 0.5, 4.0 })
         {
-            var changed = source.Bright(gamma);
+            var changed = source.Adjust(Gamma(gamma));
             for (int channel = 0; channel < 3; channel++)
             {
                 int offset = channel * 256;
@@ -63,24 +63,24 @@ public class GammaHotkeyTests
         { writes++; current = target; return true; });
         controller.RefreshBaseline();
         var profile = new GammaProfile { Gamma = 1.5 };
-        controller.ApplyProfile(profile, 2.0);
+        controller.ApplyProfile(profile, Gamma(2.0));
         Assert.True(writes == 0); // Preview never applies a profile that is not active.
         controller.ApplyProfile(profile);
-        controller.ApplyProfile(profile, 2.0);
+        controller.ApplyProfile(profile, Gamma(2.0));
         var display = controller.Displays.Single();
-        Assert.True(writes == 2 && display.Confirmed && display.AppliedGamma == 2.0 && profile.Gamma == 1.5);
+        Assert.True(writes == 2 && display.Confirmed && display.AppliedAdjustment == Gamma(2.0) && profile.Gamma == 1.5);
         profile.Gamma = 2.0; // Commit after preview needs no second write.
         controller.ApplyProfile(profile);
         Assert.True(writes == 2);
         current = CurvedRamp(); // External change: preview leaves it alone.
-        controller.ApplyProfile(profile, 1.2);
+        controller.ApplyProfile(profile, Gamma(1.2));
         Assert.True(writes == 2 && current.Matches(CurvedRamp()));
     }
 
     [Fact]
     public void DistinctRgbBaselinesStayDistinct()
     {
-        var bright = CurvedRamp().Bright(2.0);
+        var bright = CurvedRamp().Adjust(Gamma(2.0));
         Assert.True(bright[128] != bright[256 + 128]);
         Assert.True(bright[256 + 128] != bright[512 + 128]);
     }
@@ -90,14 +90,14 @@ public class GammaHotkeyTests
     {
         var ramp = IdentityRamp();
         foreach (double value in new[] { double.NaN, double.PositiveInfinity, 0.49, 4.01 })
-            Assert.ThrowsAny<ArgumentException>(() => ramp.Bright(value));
+            Assert.ThrowsAny<ArgumentException>(() => ramp.Adjust(Gamma(value)));
         Assert.ThrowsAny<ArgumentException>(() => _ = new GammaRamp(new ushort[1]));
         var descending = ramp.ToArray();
         descending[130] = 0;
-        Assert.ThrowsAny<ArgumentException>(() => new GammaRamp(descending).Bright(2.0));
+        Assert.ThrowsAny<ArgumentException>(() => new GammaRamp(descending).Adjust(Gamma(2.0)));
         var excessive = ramp.ToArray();
         excessive[1] = 50000;
-        Assert.ThrowsAny<ArgumentException>(() => new GammaRamp(excessive).Bright(2.0));
+        Assert.ThrowsAny<ArgumentException>(() => new GammaRamp(excessive).Adjust(Gamma(2.0)));
     }
 
     [Fact]
@@ -391,12 +391,21 @@ public class GammaHotkeyTests
     public void GammaTextAcceptsCurrentOrInvariantFormatInRange()
     {
         var hungarian = CultureInfo.GetCultureInfo("hu-HU");
-        Assert.True(GammaProfile.TryParseGamma("1,25", hungarian, out double value) && value == 1.25);
-        Assert.True(GammaProfile.TryParseGamma("1.25", hungarian, out value) && value == 1.25);
-        Assert.True(GammaProfile.TryParseGamma("0.5", CultureInfo.InvariantCulture, out value) && value == 0.5);
-        Assert.True(GammaProfile.TryParseGamma("4", CultureInfo.InvariantCulture, out value) && value == 4);
+        Assert.True(GammaProfile.TryParseValue("1,25", hungarian, GammaProfile.IsValidGamma, out double value) && value == 1.25);
+        Assert.True(GammaProfile.TryParseValue("1.25", hungarian, GammaProfile.IsValidGamma, out value) && value == 1.25);
+        Assert.True(GammaProfile.TryParseValue("0.5", CultureInfo.InvariantCulture, GammaProfile.IsValidGamma, out value) && value == 0.5);
+        Assert.True(GammaProfile.TryParseValue("4", CultureInfo.InvariantCulture, GammaProfile.IsValidGamma, out value) && value == 4);
         foreach (string invalid in new[] { "0.49", "4.01", "1.255", "abc", "", "NaN", "Infinity" })
-            Assert.False(GammaProfile.TryParseGamma(invalid, hungarian, out _));
+            Assert.False(GammaProfile.TryParseValue(invalid, hungarian, GammaProfile.IsValidGamma, out _));
+        Assert.True(GammaProfile.TryParseValue("+0,05", hungarian, GammaProfile.IsValidBrightness, out value) && value == 0.05);
+        Assert.True(GammaProfile.TryParseValue("-0.5", hungarian, GammaProfile.IsValidBrightness, out value) && value == -0.5);
+        Assert.True(GammaProfile.TryParseValue("1.5", hungarian, GammaProfile.IsValidContrast, out value) && value == 1.5);
+        foreach (string invalid in new[] { "0.51", "-0.51", "0.055" })
+            Assert.False(GammaProfile.TryParseValue(invalid, hungarian, GammaProfile.IsValidBrightness, out _));
+        foreach (string invalid in new[] { "0.49", "1.51" })
+            Assert.False(GammaProfile.TryParseValue(invalid, hungarian, GammaProfile.IsValidContrast, out _));
+        Assert.Equal("+0,05", 0.05.ToString("+0.00;-0.00;0.00", hungarian));
+        Assert.Equal("0.00", (Math.Round(-0.001, 2) + 0.0).ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture));
     }
 
     [Fact]
@@ -447,7 +456,8 @@ public class GammaHotkeyTests
     {
         foreach (var source in new[] { IdentityRamp(), CurvedRamp() })
         {
-            var bright = source.Bright(gamma);
+            var bright = source.Adjust(Gamma(gamma));
+            Assert.Equal(LegacyBright(source, gamma), bright.ToArray());
             for (int channel = 0; channel < 3; channel++)
             {
                 int offset = channel * 256;
@@ -563,7 +573,7 @@ public class GammaHotkeyTests
     public void SafeExternalRampBecomesTheNewBaseline()
     {
         var original = IdentityRamp();
-        var external = original.Bright(1.5);
+        var external = original.Adjust(Gamma(1.5));
         GammaRamp current = original;
         var controller = new GammaController(() => ["A"], _ => current, (_, target) => { current = target; return true; });
         controller.RefreshBaseline();
@@ -709,7 +719,7 @@ public class GammaHotkeyTests
             (name, ramp) => { writes.Add(name); ramps[name] = ramp; return true; }, monitorIds: name => ["mon-" + name]);
         controller.RefreshBaseline();
         controller.ApplyProfile(new GammaProfile { Gamma = 2 });
-        var external = original.Bright(1.5);
+        var external = original.Adjust(Gamma(1.5));
         ramps["C"] = external;
         writes.Clear();
         var main = new GammaProfile { Name = "Main", Gamma = 1.5, Displays = ["mon-A"] };
@@ -734,9 +744,9 @@ public class GammaHotkeyTests
         controller.ApplyProfile(all);
         all.Displays = ["mon-A"];
         touched.Clear();
-        controller.ApplyProfile(all, 1.5);
+        controller.ApplyProfile(all, Gamma(1.5));
         Assert.DoesNotContain("B", touched);
-        Assert.True(ramps["A"].Matches(original.Bright(1.5)) && ramps["B"].Matches(original.Bright(2)));
+        Assert.True(ramps["A"].Matches(original.Adjust(Gamma(1.5))) && ramps["B"].Matches(original.Adjust(Gamma(2))));
     }
 
     [Fact]
@@ -762,6 +772,123 @@ public class GammaHotkeyTests
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
+
+    [Fact]
+    public void LinearStepAppliesAtGammaOneAndStaysMonotonicWithClipping()
+    {
+        var source = IdentityRamp();
+        var lifted = source.Adjust(new Adjustment(1, 0.3, 1.5));
+        Assert.True(lifted[128] > source[128] && lifted[255] == 65535 && lifted[254] == 65535 && lifted.IsSafe());
+        for (int i = 1; i < GammaRamp.Length; i++)
+            if (i % 256 != 0) Assert.True(lifted[i] >= lifted[i - 1]);
+        // Dimming: contrast 0.50 and brightness -0.25 halve every value.
+        var dimmed = source.Adjust(new Adjustment(1, -0.25, 0.5));
+        Assert.True(dimmed[0] == 0 && Math.Abs(dimmed[255] - 32768) <= 1 && dimmed.IsSafe());
+        Assert.False(source.Adjust(new Adjustment(1, -0.5, 0.5)).IsSafe());
+        Assert.False(source.Adjust(new Adjustment(4, 0.5, 1)).IsSafe());
+        foreach (var invalid in new[] { new Adjustment(1, 0.51, 1), new Adjustment(1, 0, 0.49), new Adjustment(1, double.NaN, 1) })
+            Assert.ThrowsAny<ArgumentException>(() => source.Adjust(invalid));
+    }
+
+    [Fact]
+    public void SettingsBrightnessAndContrastDefaultAndValidate()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "GammaHotkeyTests-" + Guid.NewGuid());
+        string path = Path.Combine(directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"A\",\"gamma\":1.2,\"hotkey\":\"\"}]}");
+            var settings = AppSettings.Load(path, out var warning);
+            Assert.True(warning is null && settings.Profiles[0].Brightness == 0 && settings.Profiles[0].Contrast == 1);
+            settings.Profiles[0].Brightness = -0.5;
+            settings.Profiles[0].Contrast = 1.5;
+            settings.Save(path);
+            Assert.DoesNotContain("adjustment", File.ReadAllText(path));
+            var restored = AppSettings.Load(path, out warning);
+            Assert.True(warning is null && restored.Profiles[0].Adjustment == new Adjustment(1.2, -0.5, 1.5));
+            foreach (var (brightness, contrast) in new[] { (0.51, 1.0), (-0.51, 1.0), (0, 0.49), (0, 1.51),
+                (double.NaN, 1.0), (0, double.PositiveInfinity) })
+            {
+                settings.Profiles[0].Brightness = brightness;
+                settings.Profiles[0].Contrast = contrast;
+                Assert.ThrowsAny<ArgumentException>(() => settings.Save(path));
+            }
+            foreach (string values in new[] { "\"brightness\":0.6", "\"contrast\":0.4" })
+            {
+                File.WriteAllText(path, "{\"schemaVersion\":2,\"profiles\":[{\"name\":\"A\",\"gamma\":1,\"hotkey\":\"\"," + values + "}]}");
+                restored = AppSettings.Load(path, out warning);
+                Assert.True(warning is not null && restored.Profiles[0].Name == "Default");
+            }
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void RejectedPreviewLeavesDisplayAndRejectedCommitFails()
+    {
+        var original = IdentityRamp();
+        GammaRamp current = original;
+        int writes = 0;
+        var controller = new GammaController(() => ["A"], _ => current, (_, target) =>
+        { writes++; current = target; return true; });
+        controller.RefreshBaseline();
+        var profile = new GammaProfile { Gamma = 1.2, Brightness = 0.05 };
+        controller.ApplyProfile(profile);
+        var display = controller.Displays.Single();
+        var applied = current;
+        Assert.True(writes == 1 && display.Confirmed && current.Matches(original.Adjust(profile.Adjustment), 0));
+        controller.ApplyProfile(profile, new Adjustment(1.2, -0.5, 0.5));
+        Assert.True(writes == 1 && display.Confirmed && ReferenceEquals(current, applied) && display.Status == "Profile confirmed: Default");
+        controller.ApplyProfile(profile, new Adjustment(1.2, 0.6, 1)); // Out of range: Adjust throws.
+        Assert.True(writes == 1 && display.Confirmed && display.Status == "Profile confirmed: Default");
+        controller.ApplyProfile(profile, new Adjustment(1.2, 0.1, 1.1));
+        Assert.True(writes == 2 && display.Confirmed && display.AppliedAdjustment == new Adjustment(1.2, 0.1, 1.1));
+        controller.ApplyProfile(profile);
+        Assert.True(writes == 3 && display.Confirmed && current.Matches(original.Adjust(profile.Adjustment), 0));
+        // No-op compares all three values; a contrast-only change writes again.
+        controller.ApplyProfile(profile);
+        Assert.Equal(3, writes);
+        profile.Contrast = 1.1;
+        controller.ApplyProfile(profile);
+        Assert.Equal(4, writes);
+        profile.Brightness = -0.5;
+        profile.Contrast = 0.5;
+        controller.ApplyProfile(profile);
+        Assert.True(writes == 4 && !display.Confirmed && display.Status == "Failed: exceeds Windows ramp limit");
+        // The ramp is still owned, so restore returns the baseline.
+        controller.Restore();
+        Assert.True(writes == 5 && current.Matches(original) && display.Kind == DisplayStatusKind.BaselineRestored);
+    }
+
+    // The pre-GH-34 Bright transform, kept to prove a neutral Adjust is unchanged.
+    private static ushort[] LegacyBright(GammaRamp source, double gamma)
+    {
+        var values = source.ToArray();
+        if (gamma == 1) return values;
+        var result = new ushort[GammaRamp.Length];
+        for (int i = 0; i < 256; i++)
+        {
+            double coordinate = 255 * Math.Pow(i / 255.0, 1 / gamma);
+            int lower = Math.Min((int)Math.Floor(coordinate), 255);
+            int upper = Math.Min(lower + 1, 255);
+            double fraction = coordinate - lower;
+            for (int channel = 0; channel < 3; channel++)
+            {
+                int offset = channel * 256;
+                result[offset + i] = (ushort)Math.Clamp(
+                    (int)Math.Round((1 - fraction) * values[offset + lower] + fraction * values[offset + upper]), 0, 65535);
+            }
+        }
+        for (int channel = 0; channel < 3; channel++)
+        {
+            result[channel * 256] = values[channel * 256];
+            result[channel * 256 + 255] = values[channel * 256 + 255];
+        }
+        return result;
+    }
+
+    private static Adjustment Gamma(double gamma) => new(gamma, 0, 1);
 
     private static GammaRamp IdentityRamp()
     {

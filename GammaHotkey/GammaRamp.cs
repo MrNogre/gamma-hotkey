@@ -30,39 +30,47 @@ public sealed class GammaRamp
         return true;
     }
 
-    public GammaRamp Bright(double gamma)
+    // Gamma over the baseline, then contrast and brightness on the output; no limit check here.
+    public GammaRamp Adjust(Adjustment adjustment)
     {
-        if (!double.IsFinite(gamma) || gamma < 0.5 || gamma > 4)
-            throw new ArgumentOutOfRangeException(nameof(gamma));
+        if (!GammaProfile.IsValidGamma(adjustment.Gamma) || !GammaProfile.IsValidBrightness(adjustment.Brightness) ||
+            !GammaProfile.IsValidContrast(adjustment.Contrast))
+            throw new ArgumentOutOfRangeException(nameof(adjustment));
         if (!IsSafe()) throw new ArgumentException("The source ramp is unsafe or non-monotonic.");
-        if (gamma == 1) return new GammaRamp(values);
 
-        var result = new ushort[Length];
-        for (int i = 0; i < 256; i++)
+        double gamma = adjustment.Gamma;
+        var result = (ushort[])values.Clone();
+        if (gamma != 1)
         {
-            double coordinate = 255 * Math.Pow(i / 255.0, 1 / gamma);
-            int lower = Math.Min((int)Math.Floor(coordinate), 255);
-            int upper = Math.Min(lower + 1, 255);
-            double fraction = coordinate - lower;
+            for (int i = 0; i < 256; i++)
+            {
+                double coordinate = 255 * Math.Pow(i / 255.0, 1 / gamma);
+                int lower = Math.Min((int)Math.Floor(coordinate), 255);
+                int upper = Math.Min(lower + 1, 255);
+                double fraction = coordinate - lower;
+                for (int channel = 0; channel < 3; channel++)
+                {
+                    int offset = channel * 256;
+                    result[offset + i] = (ushort)Math.Clamp(
+                        (int)Math.Round((1 - fraction) * values[offset + lower] +
+                                        fraction * values[offset + upper]), 0, 65535);
+                }
+            }
             for (int channel = 0; channel < 3; channel++)
             {
-                int offset = channel * 256;
-                result[offset + i] = (ushort)Math.Clamp(
-                    (int)Math.Round((1 - fraction) * values[offset + lower] +
-                                    fraction * values[offset + upper]), 0, 65535);
+                result[channel * 256] = values[channel * 256];
+                result[channel * 256 + 255] = values[channel * 256 + 255];
             }
+            for (int channel = 0; channel < 3; channel++)
+                for (int i = 1; i < 256; i++)
+                    if (result[channel * 256 + i] < result[channel * 256 + i - 1])
+                        throw new ArgumentException("The transformed ramp is non-monotonic.");
         }
-        for (int channel = 0; channel < 3; channel++)
-        {
-            result[channel * 256] = values[channel * 256];
-            result[channel * 256 + 255] = values[channel * 256 + 255];
-        }
-        var bright = new GammaRamp(result);
-        for (int channel = 0; channel < 3; channel++)
-            for (int i = 1; i < 256; i++)
-                if (bright[channel * 256 + i] < bright[channel * 256 + i - 1])
-                    throw new ArgumentException("The transformed ramp is non-monotonic.");
-        return bright;
+        // Neutral values keep each entry exact: (v - 32767.5) * 1 + 32767.5 == v.
+        for (int i = 0; i < Length; i++)
+            result[i] = (ushort)Math.Clamp((int)Math.Round((result[i] - 32767.5) * adjustment.Contrast + 32767.5 +
+                adjustment.Brightness * 65535), 0, 65535);
+        return new GammaRamp(result);
     }
 
     public bool Matches(GammaRamp other, int tolerance = ReadbackTolerance)
@@ -72,3 +80,6 @@ public sealed class GammaRamp
         return true;
     }
 }
+
+// Per-profile ramp settings; always built from a profile, default(Adjustment) is not neutral.
+public readonly record struct Adjustment(double Gamma, double Brightness, double Contrast);

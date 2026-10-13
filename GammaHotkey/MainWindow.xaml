@@ -1,7 +1,7 @@
 <Window x:Class="GammaHotkey.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Gamma Hotkey" Width="800" Height="780" ResizeMode="CanMinimize"
+        Title="Gamma Hotkey" Width="800" Height="880" ResizeMode="CanMinimize"
         Background="{DynamicResource Background}" Foreground="{DynamicResource Text}"
         FontFamily="Segoe UI" FontSize="14" WindowStartupLocation="CenterScreen">
     <Window.Resources>
@@ -185,8 +185,18 @@
                     </Border>
                     <TextBlock Text="Gamma" FontWeight="SemiBold" Margin="0,12,0,2"/>
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="112"/></Grid.ColumnDefinitions>
-                        <Slider x:Name="GammaSlider" Minimum="0.5" Maximum="4" LargeChange="0.1" TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="8,0,18,0" ValueChanged="GammaSlider_ValueChanged" PreviewKeyUp="SliderKeyCommit" AutomationProperties.Name="Profile gamma slider"/>
-                        <TextBox x:Name="GammaInput" Grid.Column="1" TextAlignment="Center" LostFocus="GammaInput_LostFocus" KeyDown="GammaInput_KeyDown" AutomationProperties.Name="Profile gamma value"/>
+                        <Slider x:Name="GammaSlider" Minimum="0.5" Maximum="4" LargeChange="0.1" TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="8,0,18,0" ValueChanged="AdjustmentSlider_ValueChanged" PreviewKeyUp="SliderKeyCommit" AutomationProperties.Name="Profile gamma slider"/>
+                        <TextBox x:Name="GammaInput" Grid.Column="1" TextAlignment="Center" LostFocus="AdjustmentInput_LostFocus" KeyDown="AdjustmentInput_KeyDown" AutomationProperties.Name="Profile gamma value"/>
+                    </Grid>
+                    <TextBlock Text="Brightness" FontWeight="SemiBold" Margin="0,12,0,2"/>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="112"/></Grid.ColumnDefinitions>
+                        <Slider x:Name="BrightnessSlider" Minimum="-0.5" Maximum="0.5" LargeChange="0.1" TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="8,0,18,0" ValueChanged="AdjustmentSlider_ValueChanged" PreviewKeyUp="SliderKeyCommit" AutomationProperties.Name="Profile brightness slider"/>
+                        <TextBox x:Name="BrightnessInput" Grid.Column="1" TextAlignment="Center" LostFocus="AdjustmentInput_LostFocus" KeyDown="AdjustmentInput_KeyDown" AutomationProperties.Name="Profile brightness value"/>
+                    </Grid>
+                    <TextBlock Text="Contrast" FontWeight="SemiBold" Margin="0,12,0,2"/>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="112"/></Grid.ColumnDefinitions>
+                        <Slider x:Name="ContrastSlider" Minimum="0.5" Maximum="1.5" LargeChange="0.1" TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="8,0,18,0" ValueChanged="AdjustmentSlider_ValueChanged" PreviewKeyUp="SliderKeyCommit" AutomationProperties.Name="Profile contrast slider"/>
+                        <TextBox x:Name="ContrastInput" Grid.Column="1" TextAlignment="Center" LostFocus="AdjustmentInput_LostFocus" KeyDown="AdjustmentInput_KeyDown" AutomationProperties.Name="Profile contrast value"/>
                     </Grid>
                     <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="175"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <TextBlock Text="Hotkey" FontWeight="SemiBold" VerticalAlignment="Center"/>

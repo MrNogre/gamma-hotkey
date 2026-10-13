@@ -8,7 +8,7 @@ internal sealed class DisplayState
     public GammaRamp? BaselineRamp { get; set; }
     public GammaRamp? LastAppliedRamp { get; set; }
     public GammaProfile? AppliedProfile { get; set; }
-    public double AppliedGamma { get; set; }
+    public Adjustment AppliedAdjustment { get; set; }
     public DisplayStatusKind Kind { get; private set; }
     public string Detail { get; private set; } = "";
     public bool Overridden { get; set; }

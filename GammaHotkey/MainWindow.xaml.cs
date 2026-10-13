@@ -52,7 +52,8 @@ public partial class MainWindow : Window
     private bool exiting;
     private bool cleaned;
     private bool busy;
-    private bool editingGamma;
+    private bool editing;
+    private readonly AdjustmentField[] fields;
     // The first combo item is the baseline, not a stored profile; startup selects it.
     private bool baseline = true;
     public bool StartHidden => settings.StartInTray;
@@ -61,6 +62,15 @@ public partial class MainWindow : Window
     {
         settings = AppSettings.Load(AppSettings.DefaultPath, out settingsWarning);
         InitializeComponent();
+        fields =
+        [
+            new("Gamma", GammaSlider, GammaInput, 1, "F2", GammaProfile.IsValidGamma,
+                "Enter a gamma from 0.50 to 4.00 in steps of 0.01.", a => a.Gamma, (p, v) => p.Gamma = v),
+            new("Brightness", BrightnessSlider, BrightnessInput, 0, "+0.00;-0.00;0.00", GammaProfile.IsValidBrightness,
+                "Enter a brightness from -0.50 to +0.50 in steps of 0.01.", a => a.Brightness, (p, v) => p.Brightness = v),
+            new("Contrast", ContrastSlider, ContrastInput, 1, "F2", GammaProfile.IsValidContrast,
+                "Enter a contrast from 0.50 to 1.50 in steps of 0.01.", a => a.Contrast, (p, v) => p.Contrast = v)
+        ];
         VersionText.Text = $"Version {typeof(MainWindow).Assembly.GetName().Version!.ToString(3)}";
         loading = true;
         RefreshProfileList();
@@ -74,8 +84,11 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         { settingsWarning = "Windows startup setting could not be read."; }
         loading = false;
-        GammaSlider.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) => CommitGamma(GammaSlider.Value)));
-        GammaInput.TextChanged += (_, _) => { if (!loading) { editingGamma = true; UpdateView(); } };
+        foreach (var field in fields)
+        {
+            field.Slider.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) => Commit(field, field.Slider.Value)));
+            field.Input.TextChanged += (_, _) => { if (!loading) { editing = true; UpdateView(); } };
+        }
         LoadProfile();
         ApplyTheme();
         ShowTab(false);
@@ -113,7 +126,7 @@ public partial class MainWindow : Window
             LoadProfile();
             BuildDisplayTargets();
         };
-        previewTimer.Tick += (_, _) => { previewTimer.Stop(); PreviewGamma(); };
+        previewTimer.Tick += (_, _) => { previewTimer.Stop(); PreviewAdjustment(); };
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
@@ -164,12 +177,15 @@ public partial class MainWindow : Window
     {
         loading = true;
         var profile = settings.Profiles[settings.SelectedProfile];
-        GammaSlider.Value = profile.Gamma;
-        GammaInput.Text = profile.Gamma.ToString("F2", CultureInfo.CurrentCulture);
+        foreach (var field in fields)
+        {
+            field.Slider.Value = field.Get(profile.Adjustment);
+            field.Input.Text = field.Text(field.Get(profile.Adjustment));
+        }
         string hotkey = baseline ? settings.BaselineHotkey : profile.Hotkey;
         ShortcutInput.Text = hotkey == "" ? "None" : hotkey;
         loading = false;
-        editingGamma = false;
+        editing = false;
         UpdateView();
     }
 
@@ -247,60 +263,79 @@ public partial class MainWindow : Window
         loading = wasLoading;
     }
 
-    private void GammaSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    // One adjustment row: slider, text box and the profile value it edits.
+    private sealed record AdjustmentField(string Label, Slider Slider, TextBox Input, double Default, string Format,
+        Func<double, bool> IsValid, string Hint, Func<Adjustment, double> Get, Action<GammaProfile, double> Set)
     {
-        if (loading || GammaInput is null) return;
-        GammaInput.Text = GammaSlider.Value.ToString("F2", CultureInfo.CurrentCulture);
-        editingGamma = true;
+        public string Text(double value) => value.ToString(Format, CultureInfo.CurrentCulture);
+    }
+
+    private AdjustmentField Field(object sender) => fields.First(f => f.Slider == sender || f.Input == sender);
+
+    // Rounds to the 0.01 step; adding 0.0 turns -0 into 0 so it never shows as "-0.00".
+    private static double Step(double value) => Math.Round(value, 2) + 0.0;
+
+    private void AdjustmentSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        // Fires during InitializeComponent, before the fields exist.
+        if (loading || fields is null) return;
+        var field = Field(sender);
+        field.Input.Text = field.Text(field.Slider.Value);
+        editing = true;
         previewTimer.Start();
         UpdateView();
     }
 
     // Live preview while sliding; the controller limits it to displays running this profile.
-    private void PreviewGamma() =>
-        RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile], Math.Round(GammaSlider.Value, 2)));
+    private void PreviewAdjustment() =>
+        RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile],
+            new Adjustment(Step(GammaSlider.Value), Step(BrightnessSlider.Value), Step(ContrastSlider.Value))));
 
-    private void CommitGamma(double value)
+    private void Commit(AdjustmentField field, double value)
     {
-        value = Math.Round(value, 2);
+        value = Step(value);
         loading = true;
-        GammaSlider.Value = value;
-        GammaInput.Text = value.ToString("F2", CultureInfo.CurrentCulture);
+        field.Slider.Value = value;
+        field.Input.Text = field.Text(value);
         loading = false;
-        editingGamma = false;
-        if (settings.Profiles[settings.SelectedProfile].Gamma != value)
+        editing = false;
+        var profile = settings.Profiles[settings.SelectedProfile];
+        if (field.Get(profile.Adjustment) != value)
         {
-            settings.Profiles[settings.SelectedProfile].Gamma = value;
+            field.Set(profile, value);
             SaveSettings();
-            if (!baseline) RunAction(() => controller.ApplyProfile(settings.Profiles[settings.SelectedProfile]));
+            if (!baseline) RunAction(() => controller.ApplyProfile(profile));
         }
         UpdateView();
     }
 
-    private void CommitGammaInput()
+    private void CommitInput(AdjustmentField field)
     {
-        if (GammaProfile.TryParseGamma(GammaInput.Text, CultureInfo.CurrentCulture, out double value))
+        if (GammaProfile.TryParseValue(field.Input.Text, CultureInfo.CurrentCulture, field.IsValid, out double value))
         {
             shortcutFeedback = null;
-            CommitGamma(value);
+            Commit(field, value);
         }
         else
         {
-            shortcutFeedback = "Enter a gamma from 0.50 to 4.00 in steps of 0.01.";
-            GammaInput.Text = settings.Profiles[settings.SelectedProfile].Gamma.ToString("F2", CultureInfo.CurrentCulture);
-            editingGamma = false;
+            shortcutFeedback = field.Hint;
+            field.Input.Text = field.Text(field.Get(settings.Profiles[settings.SelectedProfile].Adjustment));
+            editing = false;
             UpdateView();
         }
     }
 
-    private void GammaInput_LostFocus(object sender, RoutedEventArgs e) => CommitGammaInput();
-    private void GammaInput_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private void AdjustmentInput_LostFocus(object sender, RoutedEventArgs e) => CommitInput(Field(sender));
+    private void AdjustmentInput_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (e.Key == Key.Enter) { CommitGammaInput(); Keyboard.ClearFocus(); e.Handled = true; }
+        if (e.Key == Key.Enter) { CommitInput(Field(sender)); Keyboard.ClearFocus(); e.Handled = true; }
         else if (e.Key == Key.Escape) { LoadProfile(); Keyboard.ClearFocus(); e.Handled = true; }
     }
 
-    private void SliderKeyCommit(object sender, System.Windows.Input.KeyEventArgs e) { if (editingGamma) CommitGamma(GammaSlider.Value); }
+    private void SliderKeyCommit(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (editing) { var field = Field(sender); Commit(field, field.Slider.Value); }
+    }
 
     private void ShortcutInput_GotFocus(object sender, RoutedEventArgs e)
     {
@@ -410,16 +445,21 @@ public partial class MainWindow : Window
     {
         if (tray is null || !IsInitialized) return;
         DeleteButton.IsEnabled = !baseline && settings.Profiles.Count > 1;
-        RenameButton.IsEnabled = GammaSlider.IsEnabled = GammaInput.IsEnabled = DisplayTargets.IsEnabled = !baseline;
+        RenameButton.IsEnabled = DisplayTargets.IsEnabled = !baseline;
+        foreach (var field in fields) field.Slider.IsEnabled = field.Input.IsEnabled = !baseline;
         GammaProfile? selected = baseline ? null : settings.Profiles[settings.SelectedProfile];
         var confirmed = controller.Displays.Where(d => d.Confirmed).ToArray();
         var active = confirmed.GroupBy(d => d.AppliedProfile)
             .OrderByDescending(g => g.Count()).ThenByDescending(g => ReferenceEquals(g.Key, selected)).FirstOrDefault();
+        // Lists only non-default values, e.g. "Gamma 1.20 · Brightness +0.05".
+        var applied = active?.First().AppliedAdjustment;
+        string values = applied is not { } shown ? "" : string.Join(" · ",
+            fields.Where(f => f.Get(shown) != f.Default).Select(f => $"{f.Label} {f.Text(f.Get(shown))}"));
         string summary = active is null ? "None" :
-            $"{active.Key!.Name}: active on {active.Count()}/{controller.Displays.Count} displays";
+            $"{active.Key!.Name}{(values == "" ? "" : $" ({values})")}: active on {active.Count()}/{controller.Displays.Count} displays";
         if (controller.HasFailedRestore) summary = "Restore failed — check display settings or restart";
         else if (active is not null && (selected is null || !ReferenceEquals(active.Key, selected) ||
-            active.Any(d => d.AppliedGamma != selected.Gamma || !selected.Targets(d)) || editingGamma ||
+            active.Any(d => d.AppliedAdjustment != selected.Adjustment || !selected.Targets(d)) || editing ||
             controller.Displays.Any(d => selected.Targets(d) && !d.Confirmed &&
                 d.Kind is DisplayStatusKind.BaselineCaptured or DisplayStatusKind.BaselineRestored)))
             summary += " (selection pending)";
@@ -607,7 +647,8 @@ public partial class MainWindow : Window
     {
         string? name = PromptName("New profile", "");
         if (!ValidName(name)) return;
-        settings.Profiles.Add(new GammaProfile { Name = name!, Gamma = settings.Profiles[settings.SelectedProfile].Gamma });
+        var source = settings.Profiles[settings.SelectedProfile];
+        settings.Profiles.Add(new GammaProfile { Name = name!, Gamma = source.Gamma, Brightness = source.Brightness, Contrast = source.Contrast });
         RefreshProfileList();
         ProfileSelect.SelectedIndex = settings.Profiles.Count;
         RegisterProfileHotkeys();
