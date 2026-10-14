@@ -864,7 +864,7 @@ public class GammaHotkeyTests
         Assert.True(writes == 5 && current.Matches(original) && display.Kind == DisplayStatusKind.BaselineRestored);
     }
 
-    // The pre-GH-34 Bright transform, kept to prove a neutral Adjust is unchanged.
+    // The original Bright transform, kept to prove a neutral Adjust is unchanged.
     private static ushort[] LegacyBright(GammaRamp source, double gamma)
     {
         var values = source.ToArray();
